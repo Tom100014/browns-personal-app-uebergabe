@@ -1,0 +1,431 @@
+{
+  "title": "Browns Perso — Betriebsanleitung",
+  "subtitle": "Komplettes Handbuch für die Personalplanung im Browns Coffee Lounge, Nürnberg",
+  "version": "1.2.0",
+  "developer": "Entwickelt von sosotech · Tom Schuh · Langer Weg 23a · 90556 Cadolzburg",
+  "sections": [
+    {
+      "id": "erste-schritte",
+      "icon": "Rocket",
+      "title": "1. Erste Schritte & Ersteinrichtung",
+      "intro": "In dieser Reihenfolge richtest du Browns Perso einmalig komplett ein. Danach läuft der Alltag fast von selbst.",
+      "blocks": [
+        {
+          "heading": "Einrichtung Schritt für Schritt",
+          "steps": [
+            "Als Leitung mit deiner E-Mail anmelden (siehe Abschnitt „Anmeldung & Rollen“).",
+            "Einstellungen → Café-Stammdaten ausfüllen (Name, Adresse, Telefon, E-Mail).",
+            "Einstellungen → Öffnungszeiten je Wochentag eintragen — das ist die Grundlage der Planung.",
+            "Einstellungen → Mindestbesetzung pro Station festlegen (z. B. Service 2, Küche 1).",
+            "Einstellungen → WLAN-IP des Café-Routers hinterlegen, damit Stempeln nur im Café möglich ist.",
+            "Mitarbeiter anlegen: Name, Position, Anstellungsart, Stundenlohn, Personalnummer.",
+            "Jedem Mitarbeiter unter „Zugang einrichten“ einen Login geben (Einladung oder Passwort).",
+            "Einstellungen → Push-Benachrichtigungen auf deinem Gerät aktivieren.",
+            "Optional: Browns Agent (KI) aktivieren und erste Betriebsregeln in der Wissensdatenbank hinterlegen.",
+            "Ersten Schichtplan anlegen und mit „Plan veröffentlichen“ ans Team senden."
+          ],
+          "tips": [
+            "Du musst nicht alles auf einmal machen — Stammdaten, Öffnungszeiten und ein erster Mitarbeiter reichen zum Loslegen.",
+            "Alle Eingaben lassen sich jederzeit ändern."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zugang",
+      "icon": "KeyRound",
+      "title": "2. Anmeldung, Zugänge & Rollen",
+      "intro": "Es gibt zwei Welten: die Verwaltung (Leitung) und die schlanke Mitarbeiter-App. Wer was sieht, steuert die Rolle.",
+      "blocks": [
+        {
+          "heading": "Rollen",
+          "steps": [
+            "Admin / Manager (Leitung): sieht die komplette Verwaltung — Dienstplan, Löhne, Auswertungen, Agent, Einstellungen.",
+            "Mitarbeiter: landet automatisch in der Mitarbeiter-App mit nur den eigenen Daten (Plan, Stempeln, Stunden, Abwesenheit, Vertretung, Chat)."
+          ]
+        },
+        {
+          "heading": "Mitarbeiter-Login einrichten",
+          "steps": [
+            "Mitarbeiter → Mitarbeiter öffnen → „Zugang einrichten“.",
+            "Variante A — E-Mail-Einladung: Mitarbeiter bekommt eine Mail und setzt sein Passwort selbst.",
+            "Variante B — Direkt mit Passwort: du vergibst sofort ein Passwort (ideal zum Testen und für Leute ohne E-Mail-Routine).",
+            "Der Mitarbeiter meldet sich anschließend auf derselben Login-Seite an und landet automatisch in der App."
+          ],
+          "tips": [
+            "Der Login-Link ist für alle gleich — die Rolle entscheidet, was nach dem Login erscheint.",
+            "Vergisst ein Mitarbeiter das Passwort, kannst du unter „Zugang einrichten“ ein neues vergeben."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dashboard",
+      "icon": "LayoutDashboard",
+      "title": "3. Dashboard (Leitung)",
+      "intro": "Dein Lagebild beim Öffnen: Was ist heute los, wo brennt es, wie sieht die Woche aus.",
+      "blocks": [
+        {
+          "heading": "Was du siehst",
+          "steps": [
+            "Kennzahlen: Mitarbeiterzahl, Schichten heute, wer gerade eingestempelt ist, offene Vertretungen.",
+            "„Wer fehlt“-Warnung (rot): Mitarbeiter, deren Schicht begonnen hat, die aber noch nicht eingestempelt sind — sofort reagieren.",
+            "Belegungsprognose: die nächsten Tage mit Auslastung und Hinweisen (Wetter, Events).",
+            "Diagramm der geplanten Team-Stunden in dieser Woche.",
+            "Offene Anträge erscheinen oben als Schnellzugriff."
+          ],
+          "tips": ["Das Dashboard aktualisiert sich live — neue Stempelungen und No-Shows erscheinen ohne Neuladen."]
+        }
+      ]
+    },
+    {
+      "id": "mitarbeiter",
+      "icon": "Users",
+      "title": "4. Mitarbeiter verwalten",
+      "intro": "Die digitale Personalakte: Stammdaten, sensible Daten, Verträge und Dokumente an einem Ort.",
+      "blocks": [
+        {
+          "heading": "Mitarbeiter anlegen & bearbeiten",
+          "steps": [
+            "Mitarbeiter → „Mitarbeiter hinzufügen“.",
+            "Stammdaten: Name, E-Mail, Telefon, Adresse, Position (Station), Rolle, Anstellungsart.",
+            "Lohndaten: Stundenlohn und Wochenstunden (nur für die Leitung sichtbar, getrennt gespeichert).",
+            "Eintrittsdatum, Personalnummer (für DATEV), Geburtsdatum, interne Notizen.",
+            "Speichern — fertig."
+          ]
+        },
+        {
+          "heading": "Personalakte (Tabs)",
+          "steps": [
+            "Stammdaten: alle Felder oben.",
+            "Vertrag: Arbeitsvertrag automatisch aus den Stammdaten erzeugen.",
+            "Dokumente: Dateien hochladen (Verträge, Bescheinigungen) — sicher, nur für die Leitung.",
+            "Zeiten: erfasste Arbeitszeiten des Mitarbeiters.",
+            "Abwesenheiten: Urlaube und Krankmeldungen dieser Person."
+          ],
+          "tips": [
+            "Stundenlohn, Geburtsdatum, Adresse und Notizen liegen in einem geschützten Bereich und sind für normale Mitarbeiter nie sichtbar.",
+            "Die Personalnummer brauchst du für den DATEV-Lohnexport — am besten gleich beim Anlegen vergeben."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dienstplan",
+      "icon": "Calendar",
+      "title": "5. Schichtplan",
+      "intro": "Hier planst du die Schichten — gruppiert nach Stationen, mit Warnung bei Unterbesetzung.",
+      "blocks": [
+        {
+          "heading": "Schichten planen",
+          "steps": [
+            "Oben rechts zwischen Wochen- und Monatsansicht umschalten.",
+            "Mit „+“ in einer Zelle eine Schicht für einen Mitarbeiter an einem Tag anlegen (Start, Ende, Station, Notiz).",
+            "„+ Offene Schicht“ erstellt eine unbesetzte Schicht, die du später jemandem zuweist.",
+            "Klick auf eine Schicht wechselt den Status: Geplant → Bestätigt → Abwesend.",
+            "Der Plan ist nach Stationen gruppiert (Service, Theke, Küche, Spüle …)."
+          ]
+        },
+        {
+          "heading": "Mindestbesetzung & Veröffentlichen",
+          "steps": [
+            "Jede Stationszeile zeigt pro Tag die Besetzung gegen die hinterlegte Mindestbesetzung (z. B. 1/2).",
+            "Liegt eine Station darunter, wird sie rot mit ⚠ markiert.",
+            "„Plan veröffentlichen“ schickt dem Team eine Push-Nachricht, dass der Plan steht.",
+            "„Plan leeren“ entfernt Schichten (mit Rückfrage) — für einen sauberen Neustart."
+          ],
+          "tips": [
+            "Die Mindestbesetzung stellst du unter Einstellungen → Mindestbesetzung ein.",
+            "Eine vom Mitarbeiter abgegebene Schicht verschwindet aus seinem Plan und löst die Ersatzsuche aus."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zeiterfassung",
+      "icon": "Clock",
+      "title": "6. Zeiterfassung (Stempeluhr)",
+      "intro": "Mitarbeiter stempeln sich ein und aus — fälschungssicher über das Café-WLAN.",
+      "blocks": [
+        {
+          "heading": "So funktioniert es",
+          "steps": [
+            "Mitarbeiter öffnet „Stempeln“ und drückt Einstempeln zu Schichtbeginn.",
+            "Einstempeln klappt nur, wenn das Gerät im Café-WLAN ist (Prüfung über die hinterlegte IP).",
+            "Beim Ausstempeln werden Pausen abgezogen.",
+            "Die erfassten Stunden fließen automatisch in die Auswertungen und Löhne."
+          ],
+          "tips": [
+            "Ist keine WLAN-IP hinterlegt, ist Stempeln überall möglich (keine Einschränkung).",
+            "Die WLAN-IP holst du dir in Einstellungen mit „Aktuelle IP“, während du im Café-WLAN bist."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abwesenheiten",
+      "icon": "CalendarOff",
+      "title": "7. Abwesenheiten",
+      "intro": "Urlaub, Krankheit und Frei-Wünsche — beantragen, prüfen, genehmigen. Mit Foto-Krankmeldung.",
+      "blocks": [
+        {
+          "heading": "Ablauf",
+          "steps": [
+            "Mitarbeiter stellt in der App einen Antrag (Urlaub, Krank, Frei, Sonderurlaub) mit Zeitraum.",
+            "Bei Krankmeldung kann ein Foto des Krankenscheins angehängt werden.",
+            "Die Leitung sieht den Antrag unter „Abwesenheiten“ (Kalender- oder Listenansicht) und genehmigt oder lehnt ab.",
+            "Der Mitarbeiter wird per Push informiert; eine genehmigte Abwesenheit blockt die betroffenen Schichten."
+          ],
+          "tips": [
+            "Oben siehst du eine Übersicht: heute abwesend, diese Woche, offene Anträge.",
+            "Krankenschein-Anhänge liegen in einem geschützten Bereich, nur für die Leitung."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vertretung",
+      "icon": "LifeBuoy",
+      "title": "8. Vertretung & Ersatzsuche",
+      "intro": "Fällt jemand aus, findet das System Ersatz — auf Wunsch automatisch.",
+      "blocks": [
+        {
+          "heading": "So läuft die Ersatzsuche",
+          "steps": [
+            "Gibt ein Mitarbeiter eine Schicht ab (oder meldet sich krank), entsteht ein Ersatz-Gesuch.",
+            "Das Team wird im Chat und per Push gefragt, wer einspringen kann.",
+            "Kollegen sagen mit einem Klick zu („Ich kann übernehmen“).",
+            "Unter „Vertretung“ siehst du alle Gesuche, die Zusagen und den besten Vorschlag und weist zu."
+          ]
+        },
+        {
+          "heading": "Automatik-Modi (Einstellungen)",
+          "steps": [
+            "Mit Zustimmung: das System schlägt den besten Ersatz vor — du bestätigst.",
+            "Vollautomatisch: das System weist den besten freien Ersatz sofort zu und informiert das Team.",
+            "Option: nur Mitarbeiter mit gleicher Position vorschlagen/zuweisen."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "belegung",
+      "icon": "TrendingUp",
+      "title": "9. Belegung & Prognose",
+      "intro": "Wie voll wird es? Die Prognose kombiniert Wochentag, Wetter, Veranstaltungen und Baustellen.",
+      "blocks": [
+        {
+          "heading": "Prognose nutzen",
+          "steps": [
+            "„Belegung“ zeigt die nächsten 14 Tage mit Auslastungs-Level und Personal-Hinweis.",
+            "Wetter (Open-Meteo) fließt automatisch ein — bei Sonne im Sommer mehr Service/Spüle für den Außenbereich.",
+            "Veranstaltungen/Messen werden täglich frisch für Nürnberg gesucht und eingeplant.",
+            "Eigene Einflüsse (Baustelle, Störung, Feiertag, Ferien) trägst du manuell ein.",
+            "Mit „Automatisch aktualisieren“ holst du die Events sofort neu."
+          ],
+          "tips": ["Die Event-Suche läuft auch automatisch jeden Morgen, damit du immer vorausplanen kannst."]
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "icon": "Bot",
+      "title": "10. Browns Agent (KI)",
+      "intro": "Dein mitdenkender Planungs-Assistent: proaktiv, lernend, mit Zugriff auf alle Café-Daten.",
+      "blocks": [
+        {
+          "heading": "Was der Agent kann",
+          "steps": [
+            "Tagesbriefing: beim Öffnen meldet er von sich aus, was heute Aufmerksamkeit braucht (Unterbesetzung, No-Shows, Wetter, Events).",
+            "Fragen beantworten: Planung, Vertretung, Auslastung — auf Basis von Team, Wetter, Events, Mindestbesetzung und echten Stunden.",
+            "Plan eintragen: Hast du mit ihm einen Plan besprochen, trägt er ihn auf Klick direkt in den Schichtplan ein (Datum wählen → „Diesen Plan ins System eintragen“).",
+            "Lernen: per ✨-Knopf analysiert er die Auslastung und schreibt Erkenntnisse in die Wissensdatenbank."
+          ]
+        },
+        {
+          "heading": "Wissensdatenbank — wird immer schlauer",
+          "steps": [
+            "Betriebsregeln hinterlegst du in Einstellungen → Wissensdatenbank (z. B. „Sommer: Außenbereich → +2 Service“).",
+            "Dateien & Bilder hochladen: Speisekarten, Pläne, Fotos — der Agent liest Bilder und Textdateien automatisch aus und nutzt den Inhalt.",
+            "Jede Nacht ergänzt der Agent automatisch neue Erkenntnisse aus den echten Daten — je länger genutzt, desto schlauer."
+          ],
+          "tips": [
+            "Der Agent braucht einen hinterlegten KI-Schlüssel (LLM_API_KEY). Ist keiner gesetzt, erklärt die Seite, wie man ihn aktiviert.",
+            "Er kennt immer das aktuelle Datum und die Uhrzeit (Café-Zeit) und plant entsprechend."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "auswertungen",
+      "icon": "BarChart3",
+      "title": "11. Auswertungen, Löhne & DATEV",
+      "intro": "Stunden, Lohnkosten und die Personalkosten-Quote pro Monat — mit Export für den Steuerberater.",
+      "blocks": [
+        {
+          "heading": "Auswertung lesen",
+          "steps": [
+            "Monat oben auswählen.",
+            "Pro Mitarbeiter: Ist-Stunden, geplante Stunden, Über-/Unterstunden, Abwesenheitstage, Lohnkosten.",
+            "Umsatz des Monats eintragen → das System berechnet die Personalkosten-Quote (Richtwert Gastro ~30–35 %).",
+            "Zulagen & Spesen je Mitarbeiter erfassen (z. B. Nachtzuschlag).",
+            "6-Monats-Trend der Lohnkosten als Diagramm."
+          ]
+        },
+        {
+          "heading": "Export",
+          "steps": [
+            "„CSV“: vollständige Lohnauswertung als Tabelle (für eigene Ablage oder Steuerberater).",
+            "„DATEV-Export“: erzeugt eine Bewegungsdaten-Datei für DATEV „Lohn und Gehalt“ (Arbeitsstunden + Zulagen/Spesen je Personalnummer).",
+            "DATEV-Einstellungen (aufklappbar): Berater-/Mandantennummer und Lohnarten eintragen — diese müssen mit dem Setup deines Steuerberaters übereinstimmen."
+          ],
+          "tips": [
+            "Für DATEV braucht jeder Mitarbeiter eine Personalnummer (unter „Mitarbeiter“ pflegen).",
+            "Frag deinen Steuerberater einmalig nach den richtigen Lohnart-Nummern für Stunden, Zulagen und Spesen."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nachrichten",
+      "icon": "MessageSquare",
+      "title": "12. Team-Chat / Nachrichten",
+      "intro": "Die zentrale Team-Kommunikation inklusive Ersatzsuche — live auf allen Geräten.",
+      "blocks": [
+        {
+          "heading": "Nutzen & moderieren",
+          "steps": [
+            "Nachrichten schreiben — alle im Team sehen sie sofort (Live-Sync).",
+            "Ersatz-Gesuche erscheinen als eigene Karte mit „Ich kann übernehmen“.",
+            "Als Leitung: mit dem Mülleimer-Symbol einzelne Nachrichten löschen.",
+            "Als Leitung: mit „Chat leeren“ alle Chat-Nachrichten auf einmal entfernen (Ersatz-Karten bleiben)."
+          ],
+          "tips": ["Löschen ist nur der Leitung erlaubt — Mitarbeiter können Nachrichten nicht entfernen."]
+        }
+      ]
+    },
+    {
+      "id": "checklisten",
+      "icon": "CheckSquare",
+      "title": "13. Checklisten",
+      "intro": "Wiederkehrende Aufgaben (Öffnen, Schließen, Hygiene) als abhakbare Listen.",
+      "blocks": [
+        {
+          "heading": "Verwenden",
+          "steps": [
+            "Checklisten anlegen und mit Punkten füllen.",
+            "Mitarbeiter haken erledigte Punkte ab.",
+            "So ist jederzeit nachvollziehbar, was erledigt wurde."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "einstellungen",
+      "icon": "Settings",
+      "title": "14. Einstellungen",
+      "intro": "Der zentrale Konfigurationsbereich — hier stellst du Betrieb, Regeln und Benachrichtigungen ein.",
+      "blocks": [
+        {
+          "heading": "Bereiche",
+          "steps": [
+            "Vertretung & Automatik: Modus „Mit Zustimmung“ oder „Vollautomatisch“, gleiche Position.",
+            "Mindestbesetzung pro Station: pro Station eine Zahl — Grundlage der Unterbesetzungs-Warnung.",
+            "Wissensdatenbank & Betriebsregeln: Planungsregeln als Text + Datei-/Bild-Upload für den Agenten.",
+            "Push-Benachrichtigungen: auf diesem Gerät aktivieren. Darunter der E-Mail-Status.",
+            "Café-Stammdaten: Name, Adresse, Telefon, E-Mail.",
+            "Öffnungszeiten: je Wochentag, „geschlossen“ möglich.",
+            "WLAN-Verifikation: öffentliche IP des Café-Routers für die Stempeluhr."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mitarbeiter-app",
+      "icon": "Smartphone",
+      "title": "15. Mitarbeiter-App (Portal)",
+      "intro": "Was der Mitarbeiter sieht — schlank und auf das Wesentliche reduziert.",
+      "blocks": [
+        {
+          "heading": "Funktionen der App",
+          "steps": [
+            "Start: wichtige Hinweise oben (heutige Schicht, unbestätigte Schichten, gesuchte Vertretungen, Antragsstatus) und die neuesten Team-Nachrichten.",
+            "Mein Plan: anstehende Schichten bestätigen oder abgeben.",
+            "Stempeln: ein- und ausstempeln.",
+            "Meine Stunden: erfasste Arbeitszeit.",
+            "Abwesenheit: Anträge stellen (mit Krankschein-Foto).",
+            "Vertretung: offene Gesuche sehen und zusagen.",
+            "Chat, Checklisten, Profil, Hilfe."
+          ],
+          "tips": ["Die App ist eine PWA — über „Zum Home-Bildschirm“ wird sie wie eine echte App installiert."]
+        }
+      ]
+    },
+    {
+      "id": "benachrichtigungen",
+      "icon": "Bell",
+      "title": "16. Benachrichtigungen (Push & E-Mail)",
+      "intro": "Damit niemand etwas verpasst: Push aufs Handy und optional E-Mail als zweiter Kanal.",
+      "blocks": [
+        {
+          "heading": "Push aktivieren",
+          "steps": [
+            "Einstellungen → Push-Benachrichtigungen → auf jedem Gerät einmal aktivieren und erlauben.",
+            "iPhone: die App zuerst über Safari „Zum Home-Bildschirm“ hinzufügen, dann dort Push erlauben.",
+            "Push kommt bei: veröffentlichtem Plan, Ersatzsuche, Anträgen und neuen Nachrichten."
+          ]
+        },
+        {
+          "heading": "E-Mail (optional)",
+          "steps": [
+            "Wichtige Hinweise gehen zusätzlich per E-Mail raus, sobald ein Resend-Schlüssel hinterlegt ist.",
+            "Status siehst du in Einstellungen → Push → „E-Mail-Benachrichtigungen“ (Aktiv / Nicht konfiguriert)."
+          ]
+        },
+        {
+          "heading": "WhatsApp (optional)",
+          "steps": [
+            "Als Sicherheits-Kanal können wichtige Meldungen zusätzlich per WhatsApp an die Mitarbeiter-Nummern gehen.",
+            "Voraussetzung: WHATSAPP_TOKEN und WHATSAPP_PHONE_NUMBER_ID in der Server-Umgebung (Meta WhatsApp Cloud API oder Anbieter wie Twilio / 360dialog).",
+            "Ist es konfiguriert, erscheint in Einstellungen → Push → „WhatsApp-Benachrichtigungen“ ein Schalter zum Ein-/Ausschalten — so nutzt du es nur, wenn du es brauchst.",
+            "Telefonnummern pflegst du im Mitarbeiter-Profil; Meta verlangt für proaktive Nachrichten vorab freigegebene Vorlagen."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "live-sync",
+      "icon": "RefreshCw",
+      "title": "17. Live-Aktualisierung",
+      "intro": "Alle wichtigen Ansichten aktualisieren sich von selbst — ohne Neuladen.",
+      "blocks": [
+        {
+          "heading": "Wo es wirkt",
+          "steps": [
+            "Team-Chat, Schichtplan/Mein Plan, Zeiterfassung (gerade aktiv/No-Show), Vertretung und Abwesenheiten.",
+            "Ändert die Leitung etwas, sehen es die Mitarbeiter sofort — und umgekehrt.",
+            "Funktioniert über alle Geräte gleichzeitig."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "zugangsdaten",
+      "icon": "ShieldCheck",
+      "title": "18. Zugangsdaten & Wartung",
+      "intro": "Das Wichtigste zu Konto, Sicherheit und Betrieb auf einen Blick.",
+      "blocks": [
+        {
+          "heading": "Gut zu wissen",
+          "steps": [
+            "Leitungs-Login: deine E-Mail + Passwort. Über „Zugang einrichten“ verwaltest du Mitarbeiter-Logins.",
+            "Sensible Daten (Lohn, Adresse, Geburtsdatum, Krankenscheine) sind technisch geschützt und nur der Leitung zugänglich.",
+            "Die App läuft auf Vercel; Daten liegen in Supabase (Europa).",
+            "KI-Agent, E-Mail-Versand und Event-Suche werden über hinterlegte Schlüssel in der Server-Umgebung aktiviert — niemals im Code.",
+            "Schlüssel, die einmal sichtbar waren, sollten erneuert (rotiert) werden."
+          ]
+        }
+      ]
+    }
+  ]
+}

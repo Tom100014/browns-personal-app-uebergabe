@@ -1,0 +1,7 @@
+{
+  "crons": [
+    { "path": "/api/timeentries/autoclose", "schedule": "0 3 * * *" },
+    { "path": "/api/events/refresh", "schedule": "0 5 * * *" },
+    { "path": "/api/agent/learn", "schedule": "0 6 * * *" }
+  ]
+}
