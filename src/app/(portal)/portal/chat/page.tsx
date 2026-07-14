@@ -8,19 +8,19 @@ export default async function PortalChat() {
   if (!staff?.employee) return null
   const supabase = await createClient()
   const [{ data: messages }, { data: employees }, { data: coverage }] = await Promise.all([
-    supabase.from("messages").select("*, employee:employees(id,name,color,position)").order("created_at").limit(100),
+    supabase.from("messages").select("*, employee:employees(id,name,color,position,role)").order("created_at", { ascending: false }).limit(120),
     supabase.from("employees").select("id,name,color,position,role").order("name"),
-    supabase.from("coverage_requests").select("*, offers:coverage_offers(*, employee:employees(id,name,color,position))").order("created_at", { ascending: false }),
+    supabase.from("coverage_requests").select("*, offers:coverage_offers(*, employee:employees(id,name,color,position))").neq("status", "cancelled").order("created_at", { ascending: false }).limit(40),
   ])
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-4">
+    <div className="flex min-h-0 flex-col overflow-hidden p-4 sm:p-6">
+      <div className="mb-4 shrink-0">
         <h1 className="text-xl font-bold text-gray-900">Team-Chat</h1>
         <p className="text-gray-500 text-sm mt-0.5">Schreib mit deinen Kollegen</p>
       </div>
       <TeamChat
-        messages={(messages ?? []) as Message[]}
+        messages={((messages ?? []) as Message[]).reverse()}
         employees={(employees ?? []) as Employee[]}
         coverageRequests={(coverage ?? []) as CoverageRequest[]}
         selfEmployeeId={staff.employee.id}
