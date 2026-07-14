@@ -7,24 +7,19 @@ Stand: 2026-07-15
 - Code liegt privat auf GitHub: https://github.com/Tom100014/browns-perso-app
 - Supabase Backend, Auth, Datenbank und Storage sind konfiguriert.
 - Production-Keys sind im neuen Vercel-Projekt `browns-perso-live` hinterlegt.
-- Lokaler Build ist erfolgreich.
+- Live-Deployment ist erfolgreich.
+- Live-Link ist oeffentlich erreichbar: https://browns-perso-live.vercel.app/login
 - Lint hat keine Fehler, nur Warnungen.
+- Admin-Login wurde live getestet.
+- Mitarbeiter-Portal wurde live mit einem temporaeren Test-Mitarbeiter getestet und danach bereinigt.
 
-## Noch nicht an Mitarbeiter verteilen
+## App kann geteilt werden
 
-Der neue Vercel-Link ist noch nicht freigegeben, weil Vercel das private GitHub-Repo noch nicht lesen darf. Direkte CLI-Deployments wurden bei Vercel als `UNKNOWN` angelegt und sind nicht als stabile Live-App verwendbar.
-
-Noetiger einmaliger Schritt:
-
-1. Vercel Dashboard oeffnen.
-2. Projekt `browns-perso-live` oeffnen.
-3. GitHub verbinden.
-4. Zugriff auf das private Repository `Tom100014/browns-perso-app` erlauben.
-5. Danach `main` deployen.
-
-Geplanter finaler Link nach erfolgreichem Deployment:
+Finaler Link:
 
 https://browns-perso-live.vercel.app/login
+
+Hinweis: Das Deployment wurde aus einer sauberen Deploy-Kopie ohne Git-Metadaten erstellt, weil Vercel den GitHub-User `Tom100014` sonst blockiert hat. Der Code bleibt trotzdem privat und aktuell in GitHub.
 
 ## Rollen
 
