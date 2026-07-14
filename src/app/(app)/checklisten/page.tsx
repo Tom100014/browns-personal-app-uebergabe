@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server"
-import ChecklistManager from "@/components/checklisten/ChecklistManager"
+import ChecklistManager, { type Checklist } from "@/components/checklisten/ChecklistManager"
+import type { Employee } from "@/types"
 
 export default async function ChecklistenPage() {
   const supabase = await createClient()
@@ -13,7 +14,7 @@ export default async function ChecklistenPage() {
         <h1 className="text-xl font-bold text-gray-900">Checklisten</h1>
         <p className="text-gray-500 text-sm mt-0.5">Aufgaben verwalten und mit Schichten verknüpfen</p>
       </div>
-      <ChecklistManager checklists={(checklists ?? []) as any} employees={(employees ?? []) as any} />
+      <ChecklistManager checklists={(checklists ?? []) as Checklist[]} employees={(employees ?? []) as Employee[]} />
     </div>
   )
 }

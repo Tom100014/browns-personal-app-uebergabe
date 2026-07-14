@@ -101,7 +101,7 @@ export default function Weather() {
       ) : !city ? (
         <p className="text-sm text-gray-400">Standort oben eintragen, um Wetter &amp; Personal-Empfehlung zu sehen.</p>
       ) : days.length === 0 ? (
-        <p className="text-sm text-gray-400">Keine Wetterdaten für „{city}". Stadt prüfen.</p>
+        <p className="text-sm text-gray-400">Keine Wetterdaten für &quot;{city}&quot;. Stadt prüfen.</p>
       ) : (
         <>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">

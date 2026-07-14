@@ -240,7 +240,7 @@ export default function PayrollReport({ employees, entries, shifts, absences }: 
           <div className="px-5 pb-5 border-t border-gray-100 pt-4">
             <p className="text-xs text-gray-500 mb-3 leading-relaxed">
               Diese Werte müssen mit dem DATEV-Setup deines Steuerberaters übereinstimmen. Der Export erzeugt eine Bewegungsdaten-Datei
-              (Arbeitsstunden + Zulagen/Spesen je Personalnummer) für „Lohn und Gehalt". Personalnummern pflegst du unter <strong>Mitarbeiter</strong>.
+              (Arbeitsstunden + Zulagen/Spesen je Personalnummer) für &quot;Lohn und Gehalt&quot;. Personalnummern pflegst du unter <strong>Mitarbeiter</strong>.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {([

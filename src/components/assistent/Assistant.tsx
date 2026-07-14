@@ -38,7 +38,6 @@ export default function Assistant() {
     setBriefingLoading(false)
   }
   // Existing component pattern: initial server briefing is loaded once after mount.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadBriefing() }, [])
 
   async function ask(q: string) {

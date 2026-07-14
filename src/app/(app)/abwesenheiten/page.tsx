@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server"
-import AbsenceManager from "@/components/abwesenheiten/AbsenceManager"
+import AbsenceManager, { type Absence } from "@/components/abwesenheiten/AbsenceManager"
+import type { Employee } from "@/types"
 
 export default async function AbwesenheitenPage() {
   const supabase = await createClient()
@@ -13,7 +14,7 @@ export default async function AbwesenheitenPage() {
         <h1 className="text-xl font-bold text-gray-900">Abwesenheiten</h1>
         <p className="text-gray-500 text-sm mt-0.5">Urlaub, Krankmeldungen und Freitage verwalten</p>
       </div>
-      <AbsenceManager absences={(absences ?? []) as any} employees={(employees ?? []) as any} />
+      <AbsenceManager absences={(absences ?? []) as Absence[]} employees={(employees ?? []) as Employee[]} />
     </div>
   )
 }

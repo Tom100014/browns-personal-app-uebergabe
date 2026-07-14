@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Check, X, CheckSquare, Square as SquareIcon } from "lucide-react"
+import { Plus, Check, X } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import type { Employee } from "@/types"
 
-type ChecklistItem = { id: string; checklist_id: string; label: string; done: boolean; done_by?: string; done_at?: string }
-type Checklist = { id: string; title: string; shift_id?: string; created_at: string; items?: ChecklistItem[] }
+export type ChecklistItem = { id: string; checklist_id: string; label: string; done: boolean; done_by?: string; done_at?: string }
+export type Checklist = { id: string; title: string; shift_id?: string; created_at: string; items?: ChecklistItem[] }
 
 interface Props { checklists: Checklist[]; employees: Employee[]; canManage?: boolean; selfEmployeeId?: string }
 

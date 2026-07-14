@@ -11,7 +11,7 @@ import { notifyPush } from "@/lib/push-client"
 import { logAudit } from "@/lib/audit"
 import AbsenceTimeline from "./AbsenceTimeline"
 
-type Absence = {
+export type Absence = {
   id: string; employee_id: string; type: string; start_date: string; end_date: string
   note?: string; status: "pending" | "approved" | "rejected"; created_at: string
   attachment_path?: string | null

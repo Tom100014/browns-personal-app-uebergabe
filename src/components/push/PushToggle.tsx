@@ -32,7 +32,7 @@ export default function PushToggle({ compact = false }: { compact?: boolean }) {
     return (
       <p className="text-xs text-gray-500 flex items-start gap-1.5">
         <Smartphone className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-        Auf dem iPhone: über „Teilen → Zum Home-Bildschirm" installieren, dann sind Benachrichtigungen verfügbar.
+        Auf dem iPhone: über &quot;Teilen → Zum Home-Bildschirm&quot; installieren, dann sind Benachrichtigungen verfügbar.
       </p>
     )
   }
