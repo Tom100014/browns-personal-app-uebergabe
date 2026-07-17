@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Plus, Pencil, Trash2, X, Check, Phone, Mail, ChevronRight, UserPlus, Loader2 } from "lucide-react"
+import { Plus, Pencil, Trash2, X, Check, Phone, Mail, ChevronRight, UserPlus, Loader2, ShieldCheck, UserX } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { formatEuro } from "@/lib/hours"
 import type { Employee } from "@/types"
@@ -14,7 +14,7 @@ const ROLES: Employee["role"][] = ["employee","manager","admin"]
 const ROLE_LABELS: Record<string,string> = { employee: "Mitarbeiter", manager: "Manager", admin: "Admin" }
 const EMPLOYMENT = ["Vollzeit","Teilzeit","Minijob","Werkstudent","Aushilfe"]
 
-interface Props { employees: Employee[] }
+interface Props { employees: Employee[]; primaryAdminId?: string | null }
 
 type FormState = {
   name: string; email: string; phone: string; position: string
@@ -26,7 +26,7 @@ const emptyForm: FormState = {
   employment_type: "Teilzeit", hourly_wage: "", color: COLORS[0]
 }
 
-export default function EmployeeList({ employees: initial }: Props) {
+export default function EmployeeList({ employees: initial, primaryAdminId = null }: Props) {
   const [employees, setEmployees] = useState<Employee[]>(initial)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Employee | null>(null)
@@ -57,7 +57,7 @@ export default function EmployeeList({ employees: initial }: Props) {
     const wage = form.hourly_wage ? Number(form.hourly_wage.replace(",", ".")) : null
     const empPayload = {
       name: form.name, email: form.email, phone: form.phone || null,
-      position: form.position, role: form.role,
+      position: form.position, role: editing?.id === primaryAdminId ? "admin" : form.role,
       employment_type: form.employment_type || null,
       color: form.color,
     }
@@ -115,7 +115,31 @@ export default function EmployeeList({ employees: initial }: Props) {
     setAccessBusy(false)
   }
 
+  async function revokeAccess() {
+    if (!accessFor || !accessFor.auth_user_id || accessFor.id === primaryAdminId) return
+    if (!confirm(`App-Zugang von ${accessFor.name} wirklich stornieren? Die Personalakte und alle Daten bleiben erhalten.`)) return
+    setAccessBusy(true); setInviteMsg(null)
+    try {
+      const response = await fetch("/api/revoke-access", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: accessFor.id }),
+      })
+      const json = await response.json()
+      if (!response.ok) throw new Error(json.error ?? "Zugang konnte nicht storniert werden")
+      setEmployees(current => current.map(employee => employee.id === accessFor.id ? { ...employee, auth_user_id: null } : employee))
+      setInviteMsg(`Zugang von ${accessFor.name} wurde storniert. Die Person kann sich nicht mehr anmelden; die Personalakte bleibt erhalten.`)
+      setAccessFor(null)
+    } catch (cause) {
+      setInviteMsg(`Fehler: ${cause instanceof Error ? cause.message : "Zugang konnte nicht storniert werden"}`)
+    }
+    setAccessBusy(false)
+  }
+
   async function remove(id: string) {
+    if (id === primaryAdminId) {
+      setInviteMsg("Die Hauptberechtigte kann nicht gelöscht werden.")
+      return
+    }
     if (!confirm("Mitarbeiter wirklich löschen?")) return
     const supabase = createClient()
     await supabase.from("employees").delete().eq("id", id)
@@ -159,6 +183,7 @@ export default function EmployeeList({ employees: initial }: Props) {
                     emp.role === "admin" ? "bg-amber-50 text-amber-700" : emp.role === "manager" ? "bg-brand-50 text-brand-700" : "bg-gray-100 text-gray-600")}>
                     {ROLE_LABELS[emp.role]}
                   </span>
+                  {emp.id === primaryAdminId && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800"><ShieldCheck className="h-3 w-3" /> Hauptberechtigt</span>}
                 </div>
               </div>
             </div>
@@ -171,7 +196,7 @@ export default function EmployeeList({ employees: initial }: Props) {
                 {emp.auth_user_id ? "Zugang" : "Zugang einrichten"}
               </button>
               <button onClick={() => openEdit(emp)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400" title="Bearbeiten"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => remove(emp.id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600" title="Löschen"><Trash2 className="w-4 h-4" /></button>
+              {emp.id !== primaryAdminId && <button onClick={() => remove(emp.id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600" title="Löschen"><Trash2 className="w-4 h-4" /></button>}
               <Link href={`/mitarbeiter/${emp.id}`} className="ml-auto p-2 rounded-lg hover:bg-brand-50 text-gray-400 hover:text-brand-600" title="Personalakte"><ChevronRight className="w-5 h-5" /></Link>
             </div>
           </div>
@@ -223,6 +248,7 @@ export default function EmployeeList({ employees: initial }: Props) {
                       "bg-gray-100 text-gray-600")}>
                       {ROLE_LABELS[emp.role]}
                     </span>
+                    {emp.id === primaryAdminId && <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-700"><ShieldCheck className="h-3 w-3" /> Hauptberechtigt</div>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end items-center">
@@ -236,9 +262,9 @@ export default function EmployeeList({ employees: initial }: Props) {
                       <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition" title="Schnell bearbeiten">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => remove(emp.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="Löschen">
+                      {emp.id !== primaryAdminId && <button onClick={() => remove(emp.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="Löschen">
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </button>}
                       <Link href={`/mitarbeiter/${emp.id}`} className="p-1.5 rounded-lg hover:bg-brand-50 text-gray-400 hover:text-brand-600 transition" title="Personalakte öffnen">
                         <ChevronRight className="w-4 h-4" />
                       </Link>
@@ -260,8 +286,17 @@ export default function EmployeeList({ employees: initial }: Props) {
               <button onClick={() => setAccessFor(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
             </div>
             <p className="text-xs text-gray-500 mb-4">
-              {accessFor.auth_user_id ? "Zugang ist aktiv — hier kannst du das Passwort neu setzen." : "Gib diesem Mitarbeiter Zugang zur Mitarbeiter-App."}
+              {accessFor.id === primaryAdminId
+                ? `${accessFor.name} ist als Hauptberechtigte geschützt. Passwort und Login können verwaltet, der Zugang aber nicht storniert werden.`
+                : accessFor.auth_user_id ? "Zugang ist aktiv — hier kannst du das Passwort neu setzen oder den Zugang stornieren." : "Gib diesem Mitarbeiter Zugang zur Mitarbeiter-App."}
             </p>
+
+            {accessFor.id === primaryAdminId && (
+              <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+                <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
+                <span><strong>Hauptberechtigte:</strong> vollständiger Admin- und Leitungszugang.</span>
+              </div>
+            )}
 
             <label className="text-xs text-gray-500 mb-1 block font-medium">E-Mail (Login-Name)</label>
             <input type="email" value={accessEmail} onChange={e => setAccessEmail(e.target.value)}
@@ -286,6 +321,12 @@ export default function EmployeeList({ employees: initial }: Props) {
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50">
               <Mail className="w-4 h-4" /> Einladung per E-Mail senden
             </button>
+            {accessFor.auth_user_id && accessFor.id !== primaryAdminId && (
+              <button onClick={revokeAccess} disabled={accessBusy}
+                className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50">
+                <UserX className="h-4 w-4" /> Zugang stornieren
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -313,8 +354,8 @@ export default function EmployeeList({ employees: initial }: Props) {
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
                     {POSITIONS.map(p => <option key={p}>{p}</option>)}</select></div>
                 <div><label className="text-xs text-gray-500 mb-1 block font-medium">Rolle</label>
-                  <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as Employee["role"] }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
+                  <select value={editing?.id === primaryAdminId ? "admin" : form.role} disabled={editing?.id === primaryAdminId} onChange={e => setForm(f => ({ ...f, role: e.target.value as Employee["role"] }))}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 disabled:bg-gray-100 disabled:text-gray-500">
                     {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
               </div>
               <div className="grid grid-cols-2 gap-3">

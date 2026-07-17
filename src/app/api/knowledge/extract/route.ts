@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { getCurrentStaff } from "@/lib/staff"
 import { askLLMVision } from "@/lib/llm"
+import readXlsxFile from "read-excel-file/node"
 
 export const runtime = "nodejs"
 
@@ -43,8 +44,26 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: "Textdatei nicht lesbar" }, { status: 200 })
     }
+  } else if (/\.xlsx$/i.test(doc.file_path)) {
+    try {
+      const res = await fetch(signed.signedUrl)
+      const workbook = await readXlsxFile(Buffer.from(await res.arrayBuffer()))
+      const lines: string[] = []
+      for (const sheet of workbook.slice(0, 5)) {
+        lines.push(`[Tabelle: ${sheet.sheet}]`)
+        for (const row of sheet.data) {
+          if (lines.join("\n").length >= MAX_TEXT) break
+          const values = row.slice(0, 30).map(value => String(value ?? "").trim())
+          if (values.some(Boolean)) lines.push(values.join(" | "))
+        }
+        if (lines.join("\n").length >= MAX_TEXT) break
+      }
+      extracted = lines.join("\n").slice(0, MAX_TEXT)
+    } catch {
+      return NextResponse.json({ error: "Excel-Datei nicht lesbar" }, { status: 200 })
+    }
   } else {
-    // PDF/DOCX/XLSX: automatisches Auslesen wird (noch) nicht unterstützt.
+    // Andere Formate bleiben sicher archiviert und können jederzeit geöffnet werden.
     return NextResponse.json({ skipped: true, reason: "format" }, { status: 200 })
   }
 

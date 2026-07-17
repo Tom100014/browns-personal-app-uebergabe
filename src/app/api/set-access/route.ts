@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
-    await admin.auth.admin.updateUserById(existing.id, { password })
+    const { error: updateError } = await admin.auth.admin.updateUserById(existing.id, { password, ban_duration: "none" })
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 })
     userId = existing.id
   } else {
     userId = data.user?.id

@@ -3,7 +3,7 @@
 import { useState, useEffect, Fragment } from "react"
 import { addWeeks, subWeeks, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, format } from "date-fns"
 import { de } from "date-fns/locale"
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Plus, X, LifeBuoy, Clock, Megaphone, Trash2, Download, Printer, ShieldAlert } from "lucide-react"
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Plus, X, LifeBuoy, Clock, Megaphone, Trash2, Download, Printer, ShieldAlert, FileUp } from "lucide-react"
 import { cn, getWeekDays, formatTime, calcHours, formatDate } from "@/lib/utils"
 import { formatDayLabel } from "@/lib/coverage"
 import { notifyPush } from "@/lib/push-client"
@@ -11,6 +11,7 @@ import { useRealtimeRefresh } from "@/lib/realtime"
 import { logAudit } from "@/lib/audit"
 import type { Shift, Employee } from "@/types"
 import { createClient } from "@/lib/supabase"
+import ShiftImportDialog from "@/components/dienstplan/ShiftImportDialog"
 
 type AbsenceRow = { employee_id: string; type: string; start_date: string; end_date: string; status: string }
 type DayHours = { open: string; close: string; closed: boolean }
@@ -45,6 +46,7 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
   const [mobileDay, setMobileDay] = useState(0) // Index in weekDays für die Mobil-Tagesansicht
   const [planReview, setPlanReview] = useState<PendingPlanReview | null>(null)
   const [reviewSaving, setReviewSaving] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   // Live-Sync: Schichten anderer Geräte/Mitarbeiter (z.B. Abgaben) sofort sichtbar.
   useRealtimeRefresh(["shifts", "absences"])
@@ -447,6 +449,10 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowImport(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-100">
+            <FileUp className="h-3.5 w-3.5" /> Importieren
+          </button>
           <button onClick={publishPlan}
             className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition",
               published ? "bg-emerald-600 text-white" : "bg-brand-600 hover:bg-brand-700 text-white")}>
@@ -966,6 +972,15 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
             </div>
           </div>
         </div>
+      )}
+
+      {showImport && (
+        <ShiftImportDialog
+          employees={employees}
+          shifts={shifts}
+          onClose={() => setShowImport(false)}
+          onImported={imported => setShifts(current => [...current, ...imported])}
+        />
       )}
     </div>
   )

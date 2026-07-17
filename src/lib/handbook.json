@@ -1,7 +1,7 @@
 {
   "title": "Browns Perso — Betriebsanleitung",
   "subtitle": "Komplettes Handbuch für die Personalplanung im Browns Coffee Lounge, Nürnberg",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "developer": "Entwickelt von sosotech · Tom Schuh · Langer Weg 23a · 90556 Cadolzburg",
   "sections": [
     {
@@ -50,7 +50,9 @@
             "Mitarbeiter → Mitarbeiter öffnen → „Zugang einrichten“.",
             "Variante A — E-Mail-Einladung: Mitarbeiter bekommt eine Mail und setzt sein Passwort selbst.",
             "Variante B — Direkt mit Passwort: du vergibst sofort ein Passwort (ideal zum Testen und für Leute ohne E-Mail-Routine).",
-            "Der Mitarbeiter meldet sich anschließend auf derselben Login-Seite an und landet automatisch in der App."
+            "Der Mitarbeiter meldet sich anschließend auf derselben Login-Seite an und landet automatisch in der App.",
+            "Zugang stornieren: Mitarbeiter → Zugang → Zugang stornieren. Die Anmeldung wird gesperrt; Personalakte, Stunden und Dokumente bleiben erhalten.",
+            "Die Hauptberechtigte ist besonders geschützt und kann weder gelöscht noch versehentlich gesperrt werden."
           ],
           "tips": [
             "Der Login-Link ist für alle gleich — die Rolle entscheidet, was nach dem Login erscheint.",
@@ -124,6 +126,21 @@
             "„+ Offene Schicht“ erstellt eine unbesetzte Schicht, die du später jemandem zuweist.",
             "Klick auf eine Schicht wechselt den Status: Geplant → Bestätigt → Abwesend.",
             "Der Plan ist nach Stationen gruppiert (Service, Theke, Küche, Spüle …)."
+          ]
+        },
+        {
+          "heading": "Excel- oder CSV-Dienstplan importieren",
+          "steps": [
+            "Dienstplan öffnen und oben auf „Importieren“ klicken.",
+            "Excel (.xlsx), CSV oder TSV auswählen. Für einen sauberen Start kann dort eine Import-Vorlage heruntergeladen werden.",
+            "Benötigte Spalten: Datum, Mitarbeiter, Von, Bis. Optional: Position und Notiz. Alternativ wird eine gemeinsame Spalte „Zeit“ erkannt.",
+            "Vorschau prüfen: unbekannte Namen einem Mitarbeiter zuordnen; doppelte Schichten werden übersprungen, Überschneidungen werden blockiert.",
+            "Mit „Schichten übernehmen“ bestätigen. Erst jetzt wird der Dienstplan gespeichert.",
+            "Die Originaldatei wird automatisch unter Einstellungen → Wissensdatenbank als Dienstplan-Nachweis archiviert."
+          ],
+          "tips": [
+            "Alte .xls-Dateien vorher in Excel als .xlsx speichern.",
+            "Belege und sonstige Dateien gehören in Einstellungen → Wissensdatenbank; nur der Dienstplan-Import erzeugt echte Schichten."
           ]
         },
         {
@@ -246,7 +263,7 @@
           "heading": "Wissensdatenbank — wird immer schlauer",
           "steps": [
             "Betriebsregeln hinterlegst du in Einstellungen → Wissensdatenbank (z. B. „Sommer: Außenbereich → +2 Service“).",
-            "Dateien & Bilder hochladen: Speisekarten, Pläne, Fotos — der Agent liest Bilder und Textdateien automatisch aus und nutzt den Inhalt.",
+            "Dateien & Bilder hochladen: Speisekarten, Pläne, Fotos — der Agent liest Bilder, Text, CSV und Excel (.xlsx) automatisch aus und nutzt den Inhalt.",
             "Jede Nacht ergänzt der Agent automatisch neue Erkenntnisse aus den echten Daten — je länger genutzt, desto schlauer."
           ],
           "tips": [
@@ -331,7 +348,8 @@
           "steps": [
             "Vertretung & Automatik: Modus „Mit Zustimmung“ oder „Vollautomatisch“, gleiche Position.",
             "Mindestbesetzung pro Station: pro Station eine Zahl — Grundlage der Unterbesetzungs-Warnung.",
-            "Wissensdatenbank & Betriebsregeln: Planungsregeln als Text + Datei-/Bild-Upload für den Agenten.",
+            "Wissensdatenbank & Betriebsregeln: Planungsregeln als Text und Upload für alle Dateitypen. Bilder, Text, CSV und Excel (.xlsx) werden automatisch ausgelesen.",
+            "Dienstplan-Dateien, die echte Schichten erzeugen sollen, immer unter Dienstplan → Importieren hochladen; dort gibt es Vorschau und Fehlerprüfung.",
             "Push-Benachrichtigungen: auf diesem Gerät aktivieren. Darunter der E-Mail-Status.",
             "Café-Stammdaten: Name, Adresse, Telefon, E-Mail.",
             "Öffnungszeiten: je Wochentag, „geschlossen“ möglich.",

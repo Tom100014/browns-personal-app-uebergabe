@@ -6,10 +6,11 @@ import type { Employee } from "@/types"
 
 export default async function MitarbeiterPage() {
   const supabase = await createClient()
-  const [{ data: employeeRows }, { data: pay }, intelligence] = await Promise.all([
+  const [{ data: employeeRows }, { data: pay }, intelligence, { data: primaryAdmin }] = await Promise.all([
     supabase.from("employees").select("*").order("name"),
     supabase.from("employee_private").select("employee_id,hourly_wage"),
     buildEmployeeIntelligence(supabase, { days: 56, maxDocs: 180 }),
+    supabase.from("settings").select("value").eq("key", "primary_admin_employee_id").maybeSingle(),
   ])
   const wageById = new Map((pay ?? []).map((p: { employee_id: string; hourly_wage: number | null }) => [p.employee_id, p.hourly_wage]))
   const employees = (employeeRows ?? []).map(e => ({ ...e, hourly_wage: wageById.get(e.id) ?? null }))
@@ -23,7 +24,7 @@ export default async function MitarbeiterPage() {
         </p>
       </div>
       <TeamChart employees={(employees ?? []) as Employee[]} intelligence={intelligence} />
-      <EmployeeList employees={(employees ?? []) as Employee[]} />
+      <EmployeeList employees={(employees ?? []) as Employee[]} primaryAdminId={primaryAdmin?.value ?? null} />
     </div>
   )
 }

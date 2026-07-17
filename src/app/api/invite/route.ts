@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     }
     const userId = linkData.user?.id
     if (userId) {
+      await admin.auth.admin.updateUserById(userId, { ban_duration: "none" })
       const supabase = await createServer()
       await supabase.from("employees").update({ auth_user_id: userId }).eq("id", employeeId)
     }

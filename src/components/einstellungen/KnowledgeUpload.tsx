@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import {
   AlertTriangle,
   Brain,
@@ -8,6 +9,7 @@ import {
   Database,
   Download,
   FileText,
+  FileSpreadsheet,
   Image as ImageIcon,
   Loader2,
   ScanText,
@@ -180,7 +182,7 @@ export default function KnowledgeUpload() {
     if (data) {
       const saved = data as Doc
       setDocs(prev => [saved, ...prev])
-      if (file_path && (kind === "bild" || /\.(txt|csv|md)$/i.test(file_path))) analyze(saved.id)
+      if (file_path && (kind === "bild" || /\.(txt|csv|md|xlsx)$/i.test(file_path))) analyze(saved.id)
     }
 
     setTitle("")
@@ -251,6 +253,24 @@ export default function KnowledgeUpload() {
           <span className="font-bold">Gespeichert: </span>{learnText}
         </div>
       )}
+
+      <div className="mb-4 grid gap-3 border-y border-gray-100 py-4 sm:grid-cols-2">
+        <div className="flex items-start gap-3 px-1">
+          <Database className="mt-0.5 h-4 w-4 flex-shrink-0 text-brand-600" />
+          <div>
+            <p className="text-xs font-black text-gray-900">Dateien und Wissen hier speichern</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">Belege, Bilder, PDFs, Word, Excel und andere Dateien werden hier archiviert und dem Team oder einzelnen Mitarbeitern zugeordnet.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 border-gray-100 px-1 sm:border-l sm:pl-4">
+          <FileSpreadsheet className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+          <div>
+            <p className="text-xs font-black text-gray-900">Arbeitsplan wirklich übernehmen</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">Excel- oder CSV-Dienstpläne werden unter Dienstplan mit Vorschau in echte Schichten umgewandelt.</p>
+            <Link href="/dienstplan" className="mt-2 inline-flex text-xs font-black text-brand-700 hover:text-brand-800">Zum Dienstplan-Import</Link>
+          </div>
+        </div>
+      </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-card">
         <div className="grid gap-3 lg:grid-cols-[1fr_180px_160px]">
@@ -335,7 +355,6 @@ export default function KnowledgeUpload() {
           <input
             ref={fileRef}
             type="file"
-            accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
             className="text-xs text-gray-600 file:mr-2 file:rounded-xl file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-xs file:font-bold file:text-brand-700"
           />
           <button
@@ -348,6 +367,7 @@ export default function KnowledgeUpload() {
             Speichern
           </button>
         </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-gray-400">Alle Dateitypen können gespeichert werden. Bilder, Text, CSV und Excel (.xlsx) werden zusätzlich automatisch für Browns Agent und Team-Chart ausgelesen.</p>
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -372,7 +392,7 @@ export default function KnowledgeUpload() {
           </div>
         ) : filteredDocs.map(doc => {
           const isAnalyzing = analyzing.has(doc.id)
-          const canAnalyze = Boolean(doc.file_path) && (doc.kind === "bild" || /\.(txt|csv|md)$/i.test(doc.file_path ?? ""))
+          const canAnalyze = Boolean(doc.file_path) && (doc.kind === "bild" || /\.(txt|csv|md|xlsx)$/i.test(doc.file_path ?? ""))
           const meta = doc.parsed.meta
           const metaLine = knowledgeMetaLine(meta)
           const isRisk = meta.signal && ["problem", "krankheit", "fehler"].includes(meta.signal)
