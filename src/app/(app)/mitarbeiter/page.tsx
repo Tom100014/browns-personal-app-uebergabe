@@ -2,10 +2,11 @@ import { createClient } from "@/lib/supabase-server"
 import EmployeeList from "@/components/mitarbeiter/EmployeeList"
 import TeamChart from "@/components/mitarbeiter/TeamChart"
 import { buildEmployeeIntelligence } from "@/lib/employee-intelligence"
+import { getCurrentStaff } from "@/lib/staff"
 import type { Employee } from "@/types"
 
 export default async function MitarbeiterPage() {
-  const supabase = await createClient()
+  const [supabase, staff] = await Promise.all([createClient(), getCurrentStaff()])
   const [{ data: employeeRows }, { data: pay }, intelligence, { data: primaryAdmin }] = await Promise.all([
     supabase.from("employees").select("*").order("name"),
     supabase.from("employee_private").select("employee_id,hourly_wage"),
@@ -24,7 +25,11 @@ export default async function MitarbeiterPage() {
         </p>
       </div>
       <TeamChart employees={(employees ?? []) as Employee[]} intelligence={intelligence} />
-      <EmployeeList employees={(employees ?? []) as Employee[]} primaryAdminId={primaryAdmin?.value ?? null} />
+      <EmployeeList
+        employees={(employees ?? []) as Employee[]}
+        primaryAdminId={primaryAdmin?.value ?? null}
+        canManageAdmins={staff?.email === "admin@browns.at" || staff?.employee?.role === "admin"}
+      />
     </div>
   )
 }

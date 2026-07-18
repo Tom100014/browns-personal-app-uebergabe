@@ -1,5 +1,6 @@
--- Browns Perso Datenbank Schema
--- Führe dieses SQL in deinem Supabase SQL Editor aus
+-- Browns Perso: minimale historische Schema-Referenz, KEIN vollständiger Neuaufbau.
+-- Für ein neues System zuerst einen vollständigen Schema-Export bzw. die vollständigen
+-- Basismigrationen einspielen. Erst danach die versionierte Hardening-Migration anwenden.
 
 -- Mitarbeiter Tabelle
 create table if not exists employees (
@@ -44,15 +45,12 @@ alter table employees enable row level security;
 alter table shifts enable row level security;
 alter table time_entries enable row level security;
 
--- Policies: alle eingeloggten Nutzer dürfen alles lesen/schreiben
-create policy "auth users can do everything on employees"
-  on employees for all to authenticated using (true) with check (true);
-
-create policy "auth users can do everything on shifts"
-  on shifts for all to authenticated using (true) with check (true);
-
-create policy "auth users can do everything on time_entries"
-  on time_entries for all to authenticated using (true) with check (true);
+-- Keine permissiven Bootstrap-Policies. Nach dem Schema zwingend die versionierte
+-- Migration supabase/migrations/20260718120000_security_privacy_hardening.sql anwenden.
+alter table employees force row level security;
+alter table shifts force row level security;
+alter table time_entries force row level security;
+revoke all on employees, shifts, time_entries from anon;
 
 -- Beispiel-Daten (optional)
 insert into employees (name, email, position, role, color) values

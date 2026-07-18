@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import readXlsxFile, { type CellValue } from "read-excel-file/node"
 import { getCurrentStaff } from "@/lib/staff"
+import { enforceRateLimit, jsonNoStore, rejectCrossOriginMutation } from "@/lib/security"
+import { validateUpload } from "@/lib/security-upload"
 
 export const runtime = "nodejs"
 
-const MAX_FILE_SIZE = 12 * 1024 * 1024
+const MAX_FILE_SIZE = 4 * 1024 * 1024
 const MAX_ROWS = 1000
 const MAX_COLUMNS = 40
 
@@ -67,37 +69,43 @@ function detectDelimiter(text: string, extension: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const crossOrigin = rejectCrossOriginMutation(request)
+  if (crossOrigin) return crossOrigin
   const staff = await getCurrentStaff()
-  if (!staff?.isManager) return NextResponse.json({ error: "Nicht berechtigt" }, { status: 403 })
+  if (!staff) return jsonNoStore({ error: "Nicht angemeldet" }, { status: 401 })
+  if (!staff.isManager) return jsonNoStore({ error: "Nicht berechtigt" }, { status: 403 })
+  const limited = await enforceRateLimit(request, "shift-import-parse", 12, 10 * 60_000, staff.userId)
+  if (limited) return limited
 
   const form = await request.formData().catch(() => null)
   const file = form?.get("file")
   const requestedSheet = Math.max(0, Number(form?.get("sheetIndex") ?? 0) || 0)
-  if (!(file instanceof File)) return NextResponse.json({ error: "Datei fehlt" }, { status: 400 })
-  if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "Die Datei darf höchstens 12 MB groß sein." }, { status: 400 })
+  if (!(file instanceof File)) return jsonNoStore({ error: "Datei fehlt" }, { status: 400 })
+  if (file.size > MAX_FILE_SIZE) return jsonNoStore({ error: "Die Datei darf höchstens 4 MB groß sein." }, { status: 400 })
 
   const extension = file.name.split(".").pop()?.toLowerCase() ?? ""
   if (!["xlsx", "csv", "tsv"].includes(extension)) {
-    return NextResponse.json({ error: "Unterstützt werden Excel (.xlsx), CSV und TSV." }, { status: 400 })
+    return jsonNoStore({ error: "Unterstützt werden Excel (.xlsx), CSV und TSV." }, { status: 400 })
   }
 
   try {
+    await validateUpload(file, "knowledge")
     if (extension === "csv" || extension === "tsv") {
       const text = (await file.text()).replace(/^\uFEFF/, "")
       const rows = parseDelimited(text, detectDelimiter(text, extension))
-      return NextResponse.json({ rows, sheetName: extension.toUpperCase(), sheetNames: [extension.toUpperCase()], truncated: rows.length >= MAX_ROWS })
+      return jsonNoStore({ rows, sheetName: extension.toUpperCase(), sheetNames: [extension.toUpperCase()], truncated: rows.length >= MAX_ROWS })
     }
 
     const workbook = await readXlsxFile(Buffer.from(await file.arrayBuffer()))
     const sheet = workbook[Math.min(requestedSheet, Math.max(0, workbook.length - 1))]
-    if (!sheet) return NextResponse.json({ error: "Die Excel-Datei enthält kein Tabellenblatt." }, { status: 400 })
+    if (!sheet) return jsonNoStore({ error: "Die Excel-Datei enthält kein Tabellenblatt." }, { status: 400 })
 
     const rows = sheet.data
       .slice(0, MAX_ROWS)
       .map(row => row.slice(0, MAX_COLUMNS).map(cellValue))
       .filter(row => row.some(value => String(value ?? "").trim()))
 
-    return NextResponse.json({
+    return jsonNoStore({
       rows,
       sheetName: sheet.sheet,
       sheetNames: workbook.map(item => item.sheet),
@@ -105,6 +113,6 @@ export async function POST(request: NextRequest) {
       truncated: sheet.data.length > MAX_ROWS || sheet.data.some(row => row.length > MAX_COLUMNS),
     })
   } catch {
-    return NextResponse.json({ error: "Die Datei konnte nicht gelesen werden. Bitte als .xlsx oder CSV speichern." }, { status: 400 })
+    return jsonNoStore({ error: "Die Datei konnte nicht gelesen werden. Bitte als .xlsx oder CSV speichern." }, { status: 400 })
   }
 }

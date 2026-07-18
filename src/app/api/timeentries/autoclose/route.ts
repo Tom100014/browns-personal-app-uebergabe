@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
-import { getCurrentStaff } from "@/lib/staff"
 import { entryHours } from "@/lib/hours"
+import { jsonNoStore } from "@/lib/security"
 
 export const runtime = "nodejs"
 
@@ -12,14 +12,13 @@ type Entry = { id: string; employee_id: string; date: string; clock_in: string; 
 // verfälschen vergessene Ausstempelungen nicht die Stundenauswertung.
 export async function GET(request: NextRequest) {
   const auth = request.headers.get("authorization")
-  const cronOk = !!process.env.CRON_SECRET && auth === `Bearer ${process.env.CRON_SECRET}`
-  if (!cronOk) {
-    const staff = await getCurrentStaff()
-    if (!staff?.isManager) return NextResponse.json({ error: "Nicht berechtigt" }, { status: 403 })
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return jsonNoStore({ error: "Nicht berechtigt" }, { status: 403 })
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const sr = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !sr) return jsonNoStore({ error: "Server nicht konfiguriert" }, { status: 500 })
   const admin = createAdminClient(url!, sr!, { auth: { persistSession: false } })
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" })

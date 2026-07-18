@@ -4,8 +4,7 @@ import { useState, useEffect } from "react"
 import { Check, Clock, CalendarDays, Repeat, Loader2, Download, Printer, CalendarPlus } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { useRealtimeRefresh } from "@/lib/realtime"
-import { requestShiftCoverage, formatDayLabel } from "@/lib/coverage"
-import { notifyPush } from "@/lib/push-client"
+import { formatDayLabel } from "@/lib/coverage"
 import { shiftHours, formatHours } from "@/lib/hours"
 import { cn } from "@/lib/utils"
 import type { Shift } from "@/types"
@@ -32,20 +31,26 @@ export default function MyShifts({ shifts: initial }: { shifts: Shift[] }) {
   async function giveUp(shift: Shift) {
     if (!confirmWindow(`Schicht am ${formatDayLabel(shift.date)} wirklich abgeben? Das Team wird um Ersatz gebeten.`)) return
     setBusy(shift.id)
-    const supabase = createClient()
-    const ok = await requestShiftCoverage(supabase, shift.id)
-    if (ok) {
-      setShifts(prev => prev.filter(s => s.id !== shift.id))
-      setNotice("Deine Schicht wurde zur Vertretung freigegeben. Das Team wurde im Chat informiert, die Leitung bestätigt den Ersatz.")
-      notifyPush({
-        audience: "all",
-        title: "🔁 Schicht frei geworden",
-        body: `${shift.position} am ${formatDayLabel(shift.date)} braucht Ersatz — wer kann einspringen?`,
-        url: "/",
-        tag: "coverage",
+    try {
+      const response = await fetch("/api/coverage/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shiftId: shift.id }),
       })
+      const result = await response.json().catch(() => null) as { opened?: number; duplicates?: number; error?: string } | null
+      if (response.ok && Number(result?.opened ?? 0) > 0) {
+        setShifts(prev => prev.filter(s => s.id !== shift.id))
+        setNotice("Deine Schicht wurde zur Vertretung freigegeben. Das Team wurde im Chat informiert, die Leitung bestätigt den Ersatz.")
+      } else if (response.ok && Number(result?.duplicates ?? 0) > 0) {
+        setNotice("Für diese Schicht läuft bereits eine Vertretungsanfrage.")
+      } else {
+        setNotice(result?.error ?? "Die Schicht konnte nicht freigegeben werden. Bitte die Leitung informieren.")
+      }
+    } catch {
+      setNotice("Keine Verbindung. Die Schicht wurde nicht freigegeben; bitte erneut versuchen.")
+    } finally {
+      setBusy(null)
     }
-    setBusy(null)
   }
 
   function confirmWindow(msg: string) {

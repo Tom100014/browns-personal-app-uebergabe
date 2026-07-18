@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { FileSignature, Printer, Save, Check, Loader2, AlertTriangle } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { buildContract, type ContractData } from "@/lib/contract"
@@ -31,6 +31,7 @@ export default function ContractGenerator({ employee }: { employee: Employee }) 
   const [html, setHtml] = useState<string>("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const previewRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => {
     // Prefill employer address from café settings if available.
@@ -51,11 +52,7 @@ export default function ContractGenerator({ employee }: { employee: Employee }) 
   function generate() { setHtml(buildContract(form).html) }
 
   function printContract() {
-    const out = buildContract(form).html
-    const w = window.open("", "_blank")
-    if (!w) return
-    w.document.write(out); w.document.close(); w.focus()
-    setTimeout(() => w.print(), 400)
+    previewRef.current?.contentWindow?.print()
   }
 
   async function saveToFile() {
@@ -145,7 +142,7 @@ export default function ContractGenerator({ employee }: { employee: Employee }) 
 
       {html && (
         <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
-          <iframe title="Vertragsvorschau" srcDoc={html} className="w-full h-[520px] bg-white" />
+          <iframe ref={previewRef} title="Vertragsvorschau" srcDoc={html} sandbox="allow-modals allow-same-origin" className="w-full h-[520px] bg-white" />
         </div>
       )}
     </div>

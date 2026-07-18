@@ -8,9 +8,9 @@ export default async function PortalChat() {
   if (!staff?.employee) return null
   const supabase = await createClient()
   const [{ data: messages }, { data: employees }, { data: coverage }] = await Promise.all([
-    supabase.from("messages").select("*, employee:employees(id,name,color,position,role)").order("created_at", { ascending: false }).limit(120),
-    supabase.from("employees").select("id,name,color,position,role").order("name"),
-    supabase.from("coverage_requests").select("*, offers:coverage_offers(*, employee:employees(id,name,color,position))").neq("status", "cancelled").order("created_at", { ascending: false }).limit(40),
+    supabase.from("messages").select("*").order("created_at", { ascending: false }).limit(120),
+    supabase.from("employee_directory").select("id,name,color,position,role").order("name"),
+    supabase.from("coverage_requests").select("*, offers:coverage_offers(*)").neq("status", "cancelled").order("created_at", { ascending: false }).limit(40),
   ])
 
   return (

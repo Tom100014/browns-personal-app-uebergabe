@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Play, Square, Clock, Wifi, WifiOff, AlertTriangle } from "lucide-react"
-import { createClient } from "@/lib/supabase"
+import { Play, Square, Wifi, WifiOff, AlertTriangle } from "lucide-react"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import type { TimeEntry, Employee } from "@/types"
 import { cn, calcHours } from "@/lib/utils"
@@ -15,8 +14,8 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
   const [entries, setEntries] = useState<TimeEntry[]>(initialEntries)
   const [selectedEmployee, setSelectedEmployee] = useState(lockedEmployeeId ?? employees[0]?.id ?? "")
   const [loading, setLoading] = useState(false)
-  const [clientIp, setClientIp] = useState("")
   const [rejected, setRejected] = useState(false)
+  const [actionError, setActionError] = useState("")
   const [breakMinutes, setBreakMinutes] = useState(0)
   // Live-Timer für die Hero-Ansicht: aktualisiert die gearbeitete Zeit jede halbe Minute.
   const [, setTick] = useState(0)
@@ -32,40 +31,38 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
   useRealtimeRefresh(["time_entries"])
   useEffect(() => { setEntries(initialEntries) }, [initialEntries])
 
-  // Eigene öffentliche IP ermitteln (wird beim Einstempeln zur Server-Prüfung
-  // gesendet). Die Café-IP bleibt serverseitig und wird nie an den Client geladen.
-  useEffect(() => {
-    fetch("https://api.ipify.org?format=json")
-      .then(r => r.json()).then(d => setClientIp(d.ip)).catch(() => setClientIp(""))
-  }, [])
-
   const activeEntry = entries.find(e => e.employee_id === selectedEmployee && !e.clock_out)
 
   async function clockIn() {
     if (!selectedEmployee) return
-    setLoading(true); setRejected(false)
+    setLoading(true); setRejected(false); setActionError("")
     try {
       const res = await fetch("/api/timeentries/clockin", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId: selectedEmployee, clientIp }),
+        body: JSON.stringify({ employeeId: selectedEmployee }),
       })
       const data = await res.json()
       if (data.error === "location") { setRejected(true) }
       else if (data.entry) { setEntries(prev => [data.entry as TimeEntry, ...prev]) }
-    } catch { /* Verbindung */ }
+      else setActionError(data.error || "Einstempeln fehlgeschlagen.")
+    } catch { setActionError("Keine Verbindung zum Server.") }
     setLoading(false)
   }
 
   async function clockOut(entry: TimeEntry) {
-    setLoading(true)
-    const supabase = createClient()
-    const now = format(new Date(), "HH:mm")
-    const grossHours = calcHours(entry.clock_in, now)
-    const netHours = Math.max(0, grossHours - breakMinutes / 60)
-    const { data } = await supabase.from("time_entries")
-      .update({ clock_out: now, break_minutes: breakMinutes, total_hours: Math.round(netHours * 100) / 100 })
-      .eq("id", entry.id).select("*, employee:employees(*)").single()
-    if (data) setEntries(prev => prev.map(e => e.id === entry.id ? data as TimeEntry : e))
+    setLoading(true); setActionError("")
+    try {
+      const res = await fetch("/api/timeentries/clockin", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entryId: entry.id, breakMinutes }),
+      })
+      const data = await res.json()
+      if (data.entry) setEntries(prev => prev.map(e => e.id === entry.id ? data.entry as TimeEntry : e))
+      else setActionError(data.error || "Ausstempeln fehlgeschlagen.")
+    } catch {
+      setActionError("Keine Verbindung zum Server.")
+    }
     setLoading(false)
   }
 
@@ -150,6 +147,7 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
         <div className="flex items-center gap-3 flex-wrap">
           {!lockedEmployeeId && (
             <select value={selectedEmployee} onChange={e => setSelectedEmployee(e.target.value)}
+              aria-label="Mitarbeiter auswählen"
               className="flex-1 min-w-48 px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
               {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
             </select>
@@ -158,6 +156,7 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
           {activeEntry ? (
             <>
               <select value={breakMinutes} onChange={e => setBreakMinutes(Number(e.target.value))}
+                aria-label="Pausenzeit auswählen"
                 className="px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
                 <option value={0}>Keine Pause</option>
                 <option value={15}>15 Min Pause</option>
@@ -190,6 +189,12 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
           <div className="mt-3 flex items-start gap-2 text-sm text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
             <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             Einstempeln nur im Browns Café WLAN möglich. Bist du mit dem Café-Netz verbunden?
+          </div>
+        )}
+        {actionError && (
+          <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            {actionError}
           </div>
         )}
       </div>

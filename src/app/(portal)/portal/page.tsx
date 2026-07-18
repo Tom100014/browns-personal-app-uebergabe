@@ -13,14 +13,14 @@ import type { Shift } from "@/types"
 type ChatMsg = { id: string; content: string; created_at: string; type: string; employee_id: string | null; employee?: { name?: string; color?: string } | null }
 type Abs = { id: string; type: string; start_date: string; status: string }
 type PrivatePay = { hourly_wage?: number | null }
+type DirectoryRow = { id: string; name: string; color?: string | null }
 
 const initials = (name?: string) => (name ?? "?").split(" ").map(n => n[0]).join("").slice(0, 2)
 
 export default async function PortalHome() {
-  const staff = await getCurrentStaff()
+  const [staff, supabase] = await Promise.all([getCurrentStaff(), createClient()])
   if (!staff?.employee) return null
   const me = staff.employee
-  const supabase = await createClient()
   const TZ = "Europe/Berlin"
   const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ })
   const todayAnchor = new Date(today + "T12:00:00")
@@ -32,21 +32,25 @@ export default async function PortalHome() {
   const hour = Number(new Date().toLocaleTimeString("de-DE", { timeZone: TZ, hour: "2-digit", hour12: false }))
   const greeting = hour < 11 ? "Guten Morgen" : hour < 17 ? "Hallo" : "Guten Abend"
 
-  const [{ data: nextShifts }, { data: weekEntries }, { data: weekShiftsOwn }, { data: openCoverage }, { data: chat }, { data: myAbs }, { data: monthEntries }, { data: pay }] = await Promise.all([
+  const [{ data: nextShifts }, { data: weekEntries }, { data: weekShiftsOwn }, { count: openCoverageCount }, { data: chat }, { data: myAbs }, { data: monthEntries }, { data: pay }, { data: directory }] = await Promise.all([
     supabase.from("shifts").select("*").eq("employee_id", me.id).neq("status", "absent").gte("date", today).order("date").order("start_time").limit(3),
     supabase.from("time_entries").select("clock_in,clock_out,break_minutes").eq("employee_id", me.id).gte("date", weekStart).lte("date", weekEnd),
     supabase.from("shifts").select("date,start_time,end_time,position,status").eq("employee_id", me.id).neq("status", "absent").gte("date", weekStart).lte("date", weekEnd).order("start_time"),
-    supabase.from("coverage_requests").select("id").eq("status", "open"),
-    supabase.from("messages").select("id,content,created_at,type,employee_id,employee:employees(name,color)").eq("type", "chat").order("created_at", { ascending: false }).limit(4),
+    supabase.from("coverage_requests").select("id", { count: "exact", head: true }).eq("status", "open"),
+    supabase.from("messages").select("id,content,created_at,type,employee_id").eq("type", "chat").order("created_at", { ascending: false }).limit(4),
     supabase.from("absences").select("id,type,start_date,status").eq("employee_id", me.id).order("created_at", { ascending: false }).limit(5),
     supabase.from("time_entries").select("clock_in,clock_out,break_minutes").eq("employee_id", me.id).gte("date", monthStart).lte("date", monthEnd),
     supabase.from("employee_private").select("hourly_wage").eq("employee_id", me.id).maybeSingle(),
+    supabase.from("employee_directory").select("id,name,color"),
   ])
 
   const shifts = (nextShifts ?? []) as Shift[]
   const next = shifts[0]
-  const coverageCount = openCoverage?.length ?? 0
-  const messages = ((chat ?? []) as ChatMsg[]).reverse() // ältere oben, neueste unten
+  const coverageCount = openCoverageCount ?? 0
+  const directoryById = new Map(((directory ?? []) as DirectoryRow[]).map(employee => [employee.id, employee]))
+  const messages = ((chat ?? []) as ChatMsg[])
+    .map(message => ({ ...message, employee: message.employee_id ? directoryById.get(message.employee_id) : null }))
+    .reverse() // ältere oben, neueste unten
   const absences = (myAbs ?? []) as Abs[]
   const pendingAbs = absences.filter(a => a.status === "pending")
   const todaysShift = shifts.find(s => s.date === today)

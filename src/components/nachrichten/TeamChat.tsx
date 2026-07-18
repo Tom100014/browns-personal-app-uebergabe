@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Send, LifeBuoy, Check, Hand, Trash2, Eraser, MessageSquare, Users, Wifi } from "lucide-react"
+import { Send, LifeBuoy, Check, Hand, Trash2, Eraser, MessageSquare, Users, Wifi, ChevronDown } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import type { Employee, Message, CoverageRequest, CoverageOffer } from "@/types"
 import { cn } from "@/lib/utils"
@@ -71,7 +71,7 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
   const refreshCoverage = useCallback(async () => {
     const { data } = await createClient()
       .from("coverage_requests")
-      .select("*, offers:coverage_offers(*, employee:employees(id,name,color,position))")
+      .select("*, offers:coverage_offers(*)")
       .neq("status", "cancelled")
       .order("created_at", { ascending: false })
       .limit(40)
@@ -118,12 +118,40 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
   }, [refreshCoverage, selfEmployeeId, withEmployee])
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const isNearBottomRef = useRef(true)
+  const hasPositionedScrollRef = useRef(false)
+  const previousMessageCountRef = useRef(messages.length)
+  const [hasNewMessages, setHasNewMessages] = useState(false)
   const scrollToLatest = useCallback((behavior: ScrollBehavior = "smooth") => {
     const node = scrollRef.current
     if (!node) return
+    isNearBottomRef.current = true
+    setHasNewMessages(false)
     node.scrollTo({ top: node.scrollHeight, behavior })
   }, [])
-  useEffect(() => { scrollToLatest("smooth") }, [messages, scrollToLatest])
+  const updateScrollPosition = useCallback(() => {
+    const node = scrollRef.current
+    if (!node) return
+    const nearBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 96
+    isNearBottomRef.current = nearBottom
+    if (nearBottom) setHasNewMessages(false)
+  }, [])
+  useEffect(() => {
+    const previousCount = previousMessageCountRef.current
+    const receivedNewMessage = messages.length > previousCount
+    previousMessageCountRef.current = messages.length
+
+    if (!hasPositionedScrollRef.current || isNearBottomRef.current) {
+      const behavior: ScrollBehavior = hasPositionedScrollRef.current ? "smooth" : "auto"
+      const frame = window.requestAnimationFrame(() => {
+        scrollToLatest(behavior)
+        hasPositionedScrollRef.current = true
+      })
+      return () => window.cancelAnimationFrame(frame)
+    }
+
+    if (receivedNewMessage) setHasNewMessages(true)
+  }, [messages.length, scrollToLatest])
 
   // Times are timezone-dependent → render only after mount to avoid hydration mismatch.
   const [mounted, setMounted] = useState(false)
@@ -150,11 +178,14 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
     const text = content.trim()
     try {
       const supabase = createClient()
-      const { data } = await supabase.from("messages")
+      const { data, error } = await supabase.from("messages")
         .insert({ employee_id: selectedEmp, content: text, type: "chat", created_at: new Date().toISOString() })
         .select("*, employee:employees(id,name,color,position,role)").single()
-      if (data) setMessages(prev => mergeMessage(prev, withEmployee(data as Message)))
+      if (error || !data) return
+      setMessages(prev => mergeMessage(prev, withEmployee(data as Message)))
       setContent("")
+      isNearBottomRef.current = true
+      setHasNewMessages(false)
       // Notify everyone except the sender.
       const others = employees.filter(e => e.id !== selectedEmp).map(e => e.id)
       if (others.length) {
@@ -164,6 +195,7 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
           body: text.length > 120 ? text.slice(0, 117) + "..." : text,
           url: "/portal/chat",
           tag: "chat",
+          chatMessageId: data.id,
         })
       }
     } finally {
@@ -279,14 +311,14 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
   return (
     <section
       className={cn(
-        "mx-auto flex w-full max-w-4xl min-h-0 flex-col overflow-hidden rounded-[1.35rem] border border-border bg-white shadow-card-lg",
+        "relative mx-auto flex w-full max-w-4xl min-h-0 flex-col overflow-hidden rounded-[1.35rem] border border-border bg-white shadow-card-lg",
         isAdmin
-          ? "h-[calc(100dvh-10rem)] min-h-[520px]"
-          : "h-[calc(100dvh-17.25rem)] min-h-[320px] lg:h-[calc(100dvh-7rem)] lg:min-h-[520px]",
+          ? "h-[calc(100dvh-9rem)] min-h-[28rem] max-h-[44rem]"
+          : "h-[calc(100dvh-15rem)] min-h-[24rem] max-h-[44rem] lg:h-[calc(100dvh-7rem)] lg:min-h-[32rem]",
       )}
     >
       <div className="shrink-0 border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-citrus/15 px-4 py-3.5 sm:px-5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-500 text-white shadow-card">
               <MessageSquare className="h-5 w-5" />
@@ -310,10 +342,10 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className={cn("flex w-full min-w-0 items-center gap-2 sm:w-auto sm:shrink-0", selfEmployeeId && "hidden sm:flex")}>
           {isAdmin && messages.some(m => m.type === "chat") && (
             <button onClick={clearChat} title="Alle Chat-Nachrichten löschen"
-              className="inline-flex items-center gap-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600">
+              className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600">
               <Eraser className="w-3.5 h-3.5" /> Chat leeren
             </button>
           )}
@@ -321,7 +353,8 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
             <span className="hidden text-xs font-semibold text-muted-foreground sm:inline">Angemeldet als {signedInName}</span>
           ) : (
             <select value={selectedEmp} onChange={e => chooseSender(e.target.value)}
-              className="max-w-[12rem] rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+              aria-label="Absender auswählen"
+              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/30 sm:max-w-[12rem] sm:flex-none">
               {employees.map(e => <option key={e.id} value={e.id}>Als: {e.name}</option>)}
             </select>
           )}
@@ -331,6 +364,7 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
 
       <div
         ref={scrollRef}
+        onScroll={updateScrollPosition}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,#fffaf3_0%,#ffffff_46%,#faf8f4_100%)] px-3 py-4 sm:px-5"
       >
         {messages.length === 0 && (
@@ -396,6 +430,16 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
         </div>
       </div>
 
+      {hasNewMessages && (
+        <button
+          type="button"
+          onClick={() => scrollToLatest("smooth")}
+          className="absolute bottom-[4.75rem] left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-brand-200 bg-white px-3 py-1.5 text-xs font-bold text-brand-700 shadow-card transition hover:bg-brand-50"
+        >
+          Neue Nachrichten <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      )}
+
       <form onSubmit={send} className="shrink-0 border-t border-brand-100 bg-white px-3 py-3 sm:px-4">
         <div className="flex items-end gap-2">
           <textarea
@@ -409,7 +453,7 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
             }}
             rows={1}
             placeholder="Nachricht schreiben..."
-            className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-5 placeholder:text-gray-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+            className="max-h-28 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-5 placeholder:text-gray-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30"
           />
           <button type="submit" disabled={sending || !content.trim()}
             aria-label="Nachricht senden"

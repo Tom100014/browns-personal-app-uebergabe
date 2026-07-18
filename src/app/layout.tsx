@@ -7,7 +7,11 @@ const manrope = Manrope({ subsets: ["latin"], variable: "--font-sans" })
 const sora = Sora({ subsets: ["latin"], variable: "--font-display" })
 
 export const metadata: Metadata = {
-  title: "Brown's Coffee Lounge",
+  applicationName: "Browns Perso",
+  title: {
+    default: "Browns Perso",
+    template: "%s | Browns Perso",
+  },
   description: "Dienstplan, Zeiterfassung und Mitarbeiterverwaltung für Browns Coffee Lounge",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Brown's" },
@@ -15,13 +19,19 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
   themeColor: "#ff6818",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="de" className={`${manrope.variable} ${sora.variable} h-full antialiased`}>
-      <body className="min-h-full bg-background text-foreground"><SWRegister />{children}</body>
+      <body className="min-h-full bg-background text-foreground">
+        <a href="#main-content" className="skip-link">Zum Hauptinhalt springen</a>
+        <SWRegister />
+        {children}
+      </body>
     </html>
   )
 }

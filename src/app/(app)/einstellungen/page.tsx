@@ -2,23 +2,23 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Wifi, Save, Check, Clock, Store, Bot, HandHelping, Bell, NotebookPen, Server, ExternalLink } from "lucide-react"
+import { Wifi, Save, Check, Clock, Store, HandHelping, Bell, NotebookPen, Server, ExternalLink } from "lucide-react"
 import { createClient } from "@/lib/supabase"
-import { cn } from "@/lib/utils"
 import PushToggle from "@/components/push/PushToggle"
 import PushTestButton from "@/components/push/PushTestButton"
 import KnowledgeUpload from "@/components/einstellungen/KnowledgeUpload"
 import MinStaffingEditor from "@/components/einstellungen/MinStaffingEditor"
 import EmailStatus from "@/components/einstellungen/EmailStatus"
 import WhatsAppSettings from "@/components/einstellungen/WhatsAppSettings"
+import PrivacyControls from "@/components/einstellungen/PrivacyControls"
 import { APP_VERSION, DEVELOPER } from "@/lib/app-info"
 import type { OpeningHours, DayHours } from "@/types"
 
 type CafeInfo = { name: string; address: string; phone: string; email: string }
 const DEFAULT_CAFE: CafeInfo = { name: "Browns Café", address: "", phone: "", email: "" }
 
-type Automation = { mode: "vorschlag" | "auto"; samePositionOnly: boolean }
-const DEFAULT_AUTOMATION: Automation = { mode: "vorschlag", samePositionOnly: false }
+type Automation = { samePositionOnly: boolean }
+const DEFAULT_AUTOMATION: Automation = { samePositionOnly: false }
 
 const DAYS: { key: keyof OpeningHours; label: string }[] = [
   { key: "mon", label: "Montag" },
@@ -73,14 +73,14 @@ export default function EinstellungenPage() {
           try { setCafe({ ...DEFAULT_CAFE, ...JSON.parse(row.value) }) } catch {}
         }
         if (row.key === "automation" && row.value) {
-          try { setAuto({ ...DEFAULT_AUTOMATION, ...JSON.parse(row.value) }) } catch {}
+          try { setAuto({ samePositionOnly: !!JSON.parse(row.value).samePositionOnly }) } catch {}
         }
         if (row.key === "knowledge") setKnowledge(row.value || "")
       }
       try {
-        const res = await fetch("https://api.ipify.org?format=json")
+        const res = await fetch("/api/system/ip")
         const { ip } = await res.json()
-        setCurrentIp(ip)
+        if (typeof ip === "string") setCurrentIp(ip)
       } catch {}
     }
     load()
@@ -117,7 +117,7 @@ export default function EinstellungenPage() {
   async function saveAuto() {
     setSavingAuto(true)
     const supabase = createClient()
-    await supabase.from("settings").upsert({ key: "automation", value: JSON.stringify(auto) })
+    await supabase.from("settings").upsert({ key: "automation", value: JSON.stringify({ mode: "vorschlag", ...auto }) })
     setSavingAuto(false); setSavedAuto(true)
     setTimeout(() => setSavedAuto(false), 2000)
   }
@@ -131,14 +131,14 @@ export default function EinstellungenPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-2xl">
+    <div className="w-full min-w-0 max-w-2xl p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Einstellungen</h1>
         <p className="text-gray-500 text-sm mt-0.5">Browns Café Konfiguration</p>
       </div>
 
       {/* System-Anschlüsse */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+      <div className="min-w-0 bg-white border border-gray-200 rounded-xl p-5 mb-4">
         <div className="flex items-start gap-3">
           <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
             <Server className="w-4.5 h-4.5 text-slate-600" />
@@ -161,48 +161,34 @@ export default function EinstellungenPage() {
         </div>
       </div>
 
-      {/* Vertretungs-Automatik */}
+      <PrivacyControls />
+
+      {/* Vertretungsvorschläge */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
         <div className="flex items-start gap-3 mb-4">
           <div className="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center flex-shrink-0">
-            <Bot className="w-4.5 h-4.5 text-brand-600" />
+            <HandHelping className="w-4.5 h-4.5 text-brand-600" />
           </div>
           <div>
-            <h2 className="font-semibold text-gray-900 text-sm">Vertretung &amp; Automatik</h2>
-            <p className="text-gray-500 text-xs mt-1">Wie soll das System bei Krankmeldungen und abgegebenen Schichten reagieren?</p>
+            <h2 className="font-semibold text-gray-900 text-sm">Vertretungsvorschläge</h2>
+            <p className="text-gray-500 text-xs mt-1">Das System ermittelt passende Kandidaten. Die Leitung bestätigt jede Zuweisung.</p>
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-3 mb-4">
-          <button onClick={() => setAuto(a => ({ ...a, mode: "vorschlag" }))}
-            className={cn("text-left rounded-xl border p-4 transition",
-              auto.mode === "vorschlag" ? "border-brand-500 bg-brand-50" : "border-gray-200 hover:bg-gray-50")}>
-            <div className="flex items-center gap-2 mb-1">
-              <HandHelping className={cn("w-4 h-4", auto.mode === "vorschlag" ? "text-brand-600" : "text-gray-400")} />
-              <span className="text-sm font-semibold text-gray-900">Mit Zustimmung</span>
-            </div>
-            <p className="text-xs text-gray-500">Das System sucht Ersatz, schlägt den besten Kandidaten vor und fragt im Team — <strong>du bestätigst</strong> die Zuweisung.</p>
-          </button>
-          <button onClick={() => setAuto(a => ({ ...a, mode: "auto" }))}
-            className={cn("text-left rounded-xl border p-4 transition",
-              auto.mode === "auto" ? "border-brand-500 bg-brand-50" : "border-gray-200 hover:bg-gray-50")}>
-            <div className="flex items-center gap-2 mb-1">
-              <Bot className={cn("w-4 h-4", auto.mode === "auto" ? "text-brand-600" : "text-gray-400")} />
-              <span className="text-sm font-semibold text-gray-900">Vollautomatisch</span>
-            </div>
-            <p className="text-xs text-gray-500">Das System <strong>weist den besten freien Ersatz sofort zu</strong> und informiert das Team. Du kannst es jederzeit unter &quot;Vertretung&quot; ändern.</p>
-          </button>
+        <div className="mb-4 flex items-center gap-2 border-y border-gray-100 py-3 text-sm font-medium text-emerald-700">
+          <Check className="h-4 w-4" />
+          Menschliche Freigabe ist immer erforderlich
         </div>
 
         <label className="flex items-center gap-2.5 mb-4 cursor-pointer">
           <input type="checkbox" checked={auto.samePositionOnly} onChange={e => setAuto(a => ({ ...a, samePositionOnly: e.target.checked }))}
             className="rounded border-gray-300 text-brand-600 focus:ring-brand-500/30" />
-          <span className="text-sm text-gray-700">Nur Mitarbeiter mit <strong>gleicher Position</strong> vorschlagen/zuweisen</span>
+          <span className="text-sm text-gray-700">Nur Mitarbeiter mit <strong>gleicher Position</strong> vorschlagen</span>
         </label>
 
         <button onClick={saveAuto} disabled={savingAuto}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition disabled:opacity-50">
-          {savedAuto ? <><Check className="w-4 h-4" /> Gespeichert</> : <><Save className="w-4 h-4" /> Automatik speichern</>}
+          {savedAuto ? <><Check className="w-4 h-4" /> Gespeichert</> : <><Save className="w-4 h-4" /> Vorschläge speichern</>}
         </button>
       </div>
 
@@ -312,20 +298,20 @@ export default function EinstellungenPage() {
           {DAYS.map(({ key, label }) => {
             const day = hours[key]
             return (
-              <div key={key} className="flex items-center gap-3 py-1.5">
-                <span className="w-24 text-sm text-gray-700 font-medium flex-shrink-0">{label}</span>
+              <div key={key} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-2 sm:flex sm:gap-3 sm:py-1.5">
+                <span className="min-w-0 text-sm font-medium text-gray-700 sm:w-24 sm:flex-shrink-0">{label}</span>
                 {day.closed ? (
-                  <span className="flex-1 text-sm text-gray-400">Geschlossen</span>
+                  <span className="col-span-2 text-sm text-gray-400 sm:col-span-1 sm:flex-1">Geschlossen</span>
                 ) : (
-                  <div className="flex-1 flex items-center gap-2">
+                  <div className="order-3 col-span-2 flex min-w-0 items-center gap-2 sm:order-none sm:flex-1">
                     <input type="time" value={day.open} onChange={e => updateDay(key, { open: e.target.value })}
-                      className="px-2.5 py-1.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
+                      className="w-full min-w-0 rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
                     <span className="text-gray-400 text-sm">–</span>
                     <input type="time" value={day.close} onChange={e => updateDay(key, { close: e.target.value })}
-                      className="px-2.5 py-1.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
+                      className="w-full min-w-0 rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
                   </div>
                 )}
-                <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer flex-shrink-0">
+                <label className="col-start-2 row-start-1 flex flex-shrink-0 cursor-pointer items-center gap-1.5 text-xs text-gray-500 sm:col-auto sm:row-auto">
                   <input type="checkbox" checked={day.closed} onChange={e => updateDay(key, { closed: e.target.checked })}
                     className="rounded border-gray-300 text-brand-600 focus:ring-brand-500/30" />
                   geschlossen

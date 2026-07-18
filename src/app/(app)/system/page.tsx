@@ -20,9 +20,9 @@ type Service = {
 
 function StatusBadge({ ok, optional }: { ok: boolean; optional?: boolean }) {
   if (ok) {
-    return <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-medium"><CheckCircle2 className="w-3.5 h-3.5" /> Aktiv</span>
+    return <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"><CheckCircle2 className="w-3.5 h-3.5" /> Aktiv</span>
   }
-  return <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${optional ? "bg-gray-100 text-gray-500" : "bg-red-50 text-red-700"}`}>
+  return <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${optional ? "bg-gray-100 text-gray-500" : "bg-red-50 text-red-700"}`}>
     <Circle className="w-3.5 h-3.5" /> {optional ? "Optional — nicht aktiv" : "Fehlt"}
   </span>
 }
@@ -86,7 +86,7 @@ export default async function SystemPage() {
   ]
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl">
+    <div className="min-w-0 max-w-3xl p-4 sm:p-6">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">System &amp; Integrationen</h1>
         <p className="text-gray-500 text-sm mt-0.5">Welche Dienste die App nutzt, welche Zugänge nötig sind und wo Schlüssel hinterlegt werden</p>
@@ -100,16 +100,18 @@ export default async function SystemPage() {
         </div>
         <div className="divide-y divide-gray-50">
           {services.map(({ icon: Icon, name, tech, purpose, ok, optional, link, linkLabel }) => (
-            <div key={name} className="flex items-center gap-3 px-5 py-3.5">
-              <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <div key={name} className="grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-4 py-3.5 sm:grid-cols-[2.25rem_minmax(0,1fr)_auto] sm:items-center sm:px-5">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
                 <Icon className="w-4.5 h-4.5 text-gray-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">{name} <span className="text-gray-400 font-normal">· {tech}</span></p>
-                <p className="text-xs text-gray-500">{purpose}</p>
+                <p className="break-words text-sm font-medium text-gray-900">{name} <span className="font-normal text-gray-400">· {tech}</span></p>
+                <p className="break-words text-xs text-gray-500">{purpose}</p>
               </div>
-              <ServiceLink href={link} label={linkLabel} />
-              <StatusBadge ok={ok} optional={optional} />
+              <div className="col-start-2 flex min-w-0 flex-wrap items-center gap-2 sm:col-start-auto sm:justify-end">
+                <ServiceLink href={link} label={linkLabel} />
+                <StatusBadge ok={ok} optional={optional} />
+              </div>
             </div>
           ))}
         </div>
@@ -136,10 +138,10 @@ export default async function SystemPage() {
         </div>
         <div className="space-y-2">
           {required.map(({ key, desc, ok }) => (
-            <div key={key} className="flex items-center gap-3">
-              <code className="text-[11px] bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono w-64 flex-shrink-0 truncate">{key}</code>
-              <span className="text-xs text-gray-500 flex-1">{desc}</span>
-              <StatusBadge ok={ok} />
+            <div key={key} className="grid min-w-0 gap-1.5 rounded-lg border border-gray-100 p-2.5 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_auto] sm:items-center sm:gap-3 sm:border-0 sm:p-0">
+              <code className="min-w-0 break-all rounded bg-gray-100 px-2 py-1 font-mono text-[11px] text-gray-700">{key}</code>
+              <span className="min-w-0 text-xs text-gray-500">{desc}</span>
+              <div className="justify-self-start sm:justify-self-end"><StatusBadge ok={ok} /></div>
             </div>
           ))}
         </div>
@@ -153,10 +155,10 @@ export default async function SystemPage() {
         </div>
         <div className="space-y-2">
           {optional.map(({ key, desc, ok }) => (
-            <div key={key} className="flex items-center gap-3">
-              <code className="text-[11px] bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono w-64 flex-shrink-0 truncate">{key}</code>
-              <span className="text-xs text-gray-500 flex-1">{desc}</span>
-              <StatusBadge ok={ok} optional />
+            <div key={key} className="grid min-w-0 gap-1.5 rounded-lg border border-gray-100 p-2.5 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_auto] sm:items-center sm:gap-3 sm:border-0 sm:p-0">
+              <code className="min-w-0 break-all rounded bg-gray-100 px-2 py-1 font-mono text-[11px] text-gray-700">{key}</code>
+              <span className="min-w-0 text-xs text-gray-500">{desc}</span>
+              <div className="justify-self-start sm:justify-self-end"><StatusBadge ok={ok} optional /></div>
             </div>
           ))}
         </div>
@@ -164,7 +166,7 @@ export default async function SystemPage() {
 
       {/* Änderungsverlauf */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
           <History className="w-4 h-4 text-gray-500" />
           <h2 className="text-sm font-semibold text-gray-900">Änderungsverlauf</h2>
           <span className="text-xs text-gray-400 ml-1">letzte Aktionen der Leitung</span>
@@ -174,13 +176,13 @@ export default async function SystemPage() {
         ) : (
           <div className="divide-y divide-gray-50">
             {audit.map(a => (
-              <div key={a.id} className="flex items-start gap-3 py-2.5">
-                <span className="text-[11px] text-gray-400 tabular-nums w-28 flex-shrink-0 mt-0.5">{format(new Date(a.created_at), "dd.MM. HH:mm", { locale: de })}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800">{a.action}</p>
-                  {a.detail && <p className="text-xs text-gray-500">{a.detail}</p>}
+              <div key={a.id} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 py-2.5 sm:grid-cols-[7rem_minmax(0,1fr)_auto]">
+                <span className="mt-0.5 text-[11px] tabular-nums text-gray-400">{format(new Date(a.created_at), "dd.MM. HH:mm", { locale: de })}</span>
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-medium text-gray-800">{a.action}</p>
+                  {a.detail && <p className="break-words text-xs text-gray-500">{a.detail}</p>}
                 </div>
-                <span className="text-[11px] text-gray-400 truncate max-w-[140px] flex-shrink-0">{a.actor}</span>
+                <span className="col-start-2 min-w-0 break-all text-[11px] text-gray-400 sm:col-start-auto sm:max-w-[140px] sm:truncate">{a.actor}</span>
               </div>
             ))}
           </div>

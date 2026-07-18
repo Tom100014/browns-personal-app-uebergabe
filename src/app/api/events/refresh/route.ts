@@ -5,6 +5,7 @@ import { EVENT_TYPES } from "@/lib/forecast"
 import { askLLM } from "@/lib/llm"
 import { bavarianHolidays } from "@/lib/holidays"
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { enforceRateLimit, jsonNoStore, rejectCrossOriginMutation } from "@/lib/security"
 
 export const runtime = "nodejs"
 
@@ -26,18 +27,11 @@ async function seedHolidays(admin: SupabaseClient, today: string): Promise<numbe
   return n
 }
 
-export async function GET(request: NextRequest) {
-  // Erlaubt: eingeloggte Leitung ODER Vercel-Cron (Authorization: Bearer CRON_SECRET)
-  const auth = request.headers.get("authorization")
-  const cronOk = !!process.env.CRON_SECRET && auth === `Bearer ${process.env.CRON_SECRET}`
-  if (!cronOk) {
-    const staff = await getCurrentStaff()
-    if (!staff?.isManager) return NextResponse.json({ error: "Nicht berechtigt" }, { status: 403 })
-  }
-
+async function refreshEvents() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const sr = process.env.SUPABASE_SERVICE_ROLE_KEY
   const llm = process.env.LLM_API_KEY
+  if (!url || !sr) return jsonNoStore({ error: "Server nicht konfiguriert" }, { status: 500 })
   const admin = createAdminClient(url!, sr!, { auth: { persistSession: false } })
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" })
@@ -75,4 +69,23 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, added, holidays })
+}
+
+export async function GET(request: NextRequest) {
+  const auth = request.headers.get("authorization")
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return jsonNoStore({ error: "Nicht berechtigt" }, { status: 403 })
+  }
+  return refreshEvents()
+}
+
+export async function POST(request: NextRequest) {
+  const crossOrigin = rejectCrossOriginMutation(request)
+  if (crossOrigin) return crossOrigin
+  const staff = await getCurrentStaff()
+  if (!staff) return jsonNoStore({ error: "Nicht angemeldet" }, { status: 401 })
+  if (!staff.isManager) return jsonNoStore({ error: "Nicht berechtigt" }, { status: 403 })
+  const limited = await enforceRateLimit(request, "events-refresh", 4, 30 * 60_000, staff.userId)
+  if (limited) return limited
+  return refreshEvents()
 }

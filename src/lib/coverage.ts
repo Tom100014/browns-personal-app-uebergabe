@@ -18,13 +18,6 @@ type AbsenceRow = {
   status: string
 }
 
-const REASON_LABELS: Record<string, string> = {
-  krank: "krank gemeldet",
-  urlaub: "im Urlaub",
-  frei: "abwesend",
-  sonderurlaub: "im Sonderurlaub",
-}
-
 /** Two time ranges overlap (zero-padded HH:MM[:SS] strings compare lexicographically). */
 function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   return aStart < bEnd && bStart < aEnd
@@ -79,7 +72,7 @@ export function rankCandidates(
   })
 }
 
-export type AutomationMode = "vorschlag" | "auto"
+export type AutomationMode = "vorschlag"
 export type AutomationSettings = { mode: AutomationMode; samePositionOnly: boolean }
 
 /** Read the configured replacement automation mode (defaults to suggestion + approval). */
@@ -88,38 +81,10 @@ export async function getAutomation(supabase: SupabaseClient): Promise<Automatio
   try {
     if (data?.value) {
       const j = JSON.parse(data.value)
-      return { mode: j.mode === "auto" ? "auto" : "vorschlag", samePositionOnly: !!j.samePositionOnly }
+      return { mode: "vorschlag", samePositionOnly: !!j.samePositionOnly }
     }
   } catch { /* ignore */ }
   return { mode: "vorschlag", samePositionOnly: false }
-}
-
-/** Auto-assign a replacement: create the shift, mark the request filled, announce. */
-async function autoAssign(
-  supabase: SupabaseClient,
-  req: { id: string; date: string; start_time?: string | null; end_time?: string | null; position?: string | null },
-  candidate: Employee,
-  originalName: string,
-): Promise<void> {
-  await supabase.from("shifts").insert({
-    employee_id: candidate.id,
-    date: req.date,
-    start_time: req.start_time,
-    end_time: req.end_time,
-    position: req.position,
-    status: "confirmed",
-    note: `Automatische Vertretung für ${originalName}`,
-  })
-  await supabase.from("coverage_requests").update({ status: "filled", filled_by: candidate.id }).eq("id", req.id)
-  await supabase.from("messages").insert({
-    employee_id: null,
-    type: "coverage_filled",
-    content:
-      `🤖 Automatisch zugewiesen: ${candidate.name} übernimmt ${req.position} am ${formatDayLabel(req.date)} ` +
-      `${hhmm(req.start_time)}–${hhmm(req.end_time)} Uhr (für ${originalName}). Die Leitung kann das unter „Vertretung" ändern.`,
-    meta: { request_id: req.id },
-    created_at: new Date().toISOString(),
-  })
 }
 
 export function formatDayLabel(date: string): string {
@@ -176,12 +141,6 @@ export async function requestShiftCoverage(
 
   await supabase.from("shifts").update({ status: "absent" }).eq("id", shift.id)
 
-  // Auto-Modus: direkt zuweisen, wenn ein passender Ersatz frei ist.
-  if (automation.mode === "auto" && suggested) {
-    await autoAssign(supabase, req, suggested, giver?.name ?? "Kollegen")
-    return true
-  }
-
   const content =
     `🔁 Schicht abgegeben: ${giver?.name ?? "Ein Mitarbeiter"} kann die Schicht ${shift.position} am ` +
     `${formatDayLabel(shift.date)} ${hhmm(shift.start_time)}–${hhmm(shift.end_time)} Uhr nicht übernehmen. ` +
@@ -232,7 +191,6 @@ export async function triggerCoverageForAbsence(
   const shiftRows = (allShifts ?? []) as Shift[]
   const absenceRows = (absRows ?? []) as AbsenceRow[]
   const absentEmp = emps.find((e) => e.id === absence.employee_id)
-  const reasonLabel = REASON_LABELS[absence.type] ?? "abwesend"
   const automation = await getAutomation(supabase)
 
   let opened = 0
@@ -271,15 +229,9 @@ export async function triggerCoverageForAbsence(
     // Mark the original shift as absent so the gap is visible in the plan.
     await supabase.from("shifts").update({ status: "absent" }).eq("id", shift.id)
 
-    // Auto-Modus: passenden Ersatz sofort zuweisen.
-    if (automation.mode === "auto" && suggested) {
-      await autoAssign(supabase, req, suggested, absentEmp?.name ?? "Kollegen")
-      continue
-    }
-
     // Announce in the team chat and ask for volunteers.
     const content =
-      `🆘 Ersatz gesucht: ${absentEmp?.name ?? "Ein Mitarbeiter"} ist ${reasonLabel}. ` +
+      `🆘 Ersatz gesucht: ${absentEmp?.name ?? "Ein Mitarbeiter"} ist für diese Schicht nicht verfügbar. ` +
       `Schicht ${shift.position} am ${formatDayLabel(shift.date)} ` +
       `${hhmm(shift.start_time)}–${hhmm(shift.end_time)} Uhr. ` +
       (suggested ? `Vorschlag: ${suggested.name}. ` : "") +

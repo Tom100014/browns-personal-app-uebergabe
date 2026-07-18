@@ -9,10 +9,10 @@
   --color-brand-100: #ffe2c7;
   --color-brand-200: #ffc58f;
   --color-brand-300: #ff9d4f;
-  --color-brand-400: #ff7d22;
-  --color-brand-500: #ff6818;
-  --color-brand-600: #ed5208;
-  --color-brand-700: #c64006;
+  --color-brand-400: #b54708;
+  --color-brand-500: #c74806;
+  --color-brand-600: #b73b03;
+  --color-brand-700: #98330b;
   --color-brand-800: #98330b;
   --color-charcoal:       #2f2c29;
   --color-charcoal-light: #4a413a;
@@ -25,6 +25,12 @@
   --color-gray-50:  #faf8f4;
   --color-gray-100: #f1eee8;
   --color-gray-200: #e4ded4;
+  --color-gray-300: #cfc6bb;
+  --color-gray-400: #756b62;
+  --color-gray-500: #665d55;
+  --color-gray-600: #514a44;
+  --color-orange-600: #b54708;
+  --color-orange-700: #923a0a;
 
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.92) inset, 0 1px 2px rgb(47 44 41 / 0.05), 0 18px 42px -28px rgb(47 44 41 / 0.42);
   --shadow-card-lg: 0 1px 0 rgb(255 255 255 / 0.95) inset, 0 16px 34px -20px rgb(47 44 41 / 0.32), 0 38px 84px -46px rgb(47 44 41 / 0.48);
@@ -57,7 +63,7 @@
   --background: #f8f1e7;
   --foreground: #2f2c29;
   --card: oklch(1 0 0);
-  --primary: #ff6818;
+  --primary: #c74806;
   --primary-foreground: oklch(1 0 0);
   --muted: #f1eee8;
   --muted-foreground: #756b62;
@@ -74,6 +80,20 @@
   body { @apply bg-background text-foreground; }
   html { @apply font-sans; }
 
+  dialog { color: inherit; }
+
+  button,
+  [role="button"],
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  select {
+    min-height: 2.75rem;
+  }
+
+  ::placeholder {
+    color: var(--muted-foreground) !important;
+    opacity: 1;
+  }
+
   h1 {
     font-family: var(--font-display), var(--font-sans), Arial, sans-serif;
     letter-spacing: 0;
@@ -81,13 +101,37 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-brand-500);
-    outline-offset: 2px;
+    outline: 3px solid var(--color-brand-800) !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 0 2px white !important;
     border-radius: 4px;
+  }
+
+  :focus,
+  :target {
+    scroll-margin-block: 6rem;
   }
 }
 
 @layer utilities {
+  .skip-link {
+    position: fixed;
+    left: 1rem;
+    top: 1rem;
+    z-index: 100;
+    transform: translateY(-200%);
+    border-radius: 0.5rem;
+    background: white;
+    color: var(--color-charcoal);
+    padding: 0.75rem 1rem;
+    font-weight: 700;
+    box-shadow: var(--shadow-float);
+  }
+
+  .skip-link:focus-visible {
+    transform: translateY(0);
+  }
+
   .stat-number {
     font-family: var(--font-display), var(--font-sans), Arial, sans-serif;
     font-weight: 760;
@@ -136,5 +180,23 @@
       0 1px 0 rgb(255 255 255 / 0.45) inset,
       0 16px 34px -22px rgb(47 44 41 / 0.42),
       0 34px 82px -50px rgb(47 44 41 / 0.50);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight !important;
+    box-shadow: none !important;
   }
 }

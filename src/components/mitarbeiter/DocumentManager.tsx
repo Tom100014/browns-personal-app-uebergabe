@@ -34,16 +34,16 @@ export default function DocumentManager({ employeeId, documents: initial }: Prop
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
     setUploading(true); setError(null)
-    const supabase = createClient()
     for (const file of Array.from(files)) {
-      const safeName = file.name.replace(/[^\w.\-]+/g, "_")
-      const path = `${employeeId}/${Date.now()}-${safeName}`
-      const { error: upErr } = await supabase.storage.from("documents").upload(path, file)
-      if (upErr) { setError(`Upload fehlgeschlagen: ${upErr.message}`); continue }
-      const { data } = await supabase.from("documents")
-        .insert({ employee_id: employeeId, name: file.name, category, file_path: path, size_bytes: file.size })
-        .select().single()
-      if (data) setDocs(prev => [data as EmployeeDocument, ...prev])
+      const payload = new FormData()
+      payload.set("scope", "document")
+      payload.set("employeeId", employeeId)
+      payload.set("category", category)
+      payload.set("file", file)
+      const response = await fetch("/api/agent/upload", { method: "POST", body: payload })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) { setError(`Upload fehlgeschlagen: ${result.error || "Unbekannter Fehler"}`); continue }
+      if (result.record) setDocs(prev => [result.record as EmployeeDocument, ...prev])
     }
     setUploading(false)
     if (fileRef.current) fileRef.current.value = ""
@@ -89,6 +89,7 @@ export default function DocumentManager({ employeeId, documents: initial }: Prop
       </div>
 
       {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+      <p className="mb-3 text-xs text-gray-400">PDF, Bild, DOC oder DOCX, maximal 4 MB je Datei.</p>
 
       {/* Document list */}
       {docs.length === 0 ? (

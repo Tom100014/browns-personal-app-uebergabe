@@ -426,11 +426,12 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
   }
 
   return (
-    <div>
+    <div className="min-w-0">
       {/* Header toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2">
+      <div className="mb-4 flex min-w-0 flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="grid w-full min-w-0 grid-cols-[auto_auto_auto_minmax(0,1fr)] items-center gap-1.5 sm:flex sm:w-auto sm:gap-2">
           <button onClick={goPrev}
+            aria-label={view === "month" ? "Vorheriger Monat" : "Vorherige Woche"}
             className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500 transition">
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -439,47 +440,48 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
             Heute
           </button>
           <button onClick={goNext}
+            aria-label={view === "month" ? "Nächster Monat" : "Nächste Woche"}
             className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500 transition">
             <ChevronRight className="w-4 h-4" />
           </button>
-          <span className="text-sm text-gray-600 ml-2 font-medium capitalize">
+          <span className="min-w-0 truncate text-right text-sm font-medium capitalize text-gray-600 sm:ml-2 sm:text-left">
             {view === "month"
               ? format(currentDate, "MMMM yyyy", { locale: de })
               : `${weekDays[0].label.split(" ")[1]} – ${weekDays[6].label.split(" ")[1]}`}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
           <button onClick={() => setShowImport(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-100">
+            className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-100 sm:px-3">
             <FileUp className="h-3.5 w-3.5" /> Importieren
           </button>
           <button onClick={publishPlan}
-            className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition",
+            className={cn("flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-center text-xs font-medium leading-tight transition sm:px-3",
               published ? "bg-emerald-600 text-white" : "bg-brand-600 hover:bg-brand-700 text-white")}>
             <Megaphone className="w-3.5 h-3.5" /> {published ? "Team benachrichtigt" : "Plan veröffentlichen"}
           </button>
           <button onClick={() => setOpenForm({ date: formatDate(new Date()), start: "08:00", end: "16:00", position: "Service" })}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 transition">
+            className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 sm:px-3">
             <Plus className="w-3.5 h-3.5" /> Offene Schicht
           </button>
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+          <div className="grid min-w-0 grid-cols-2 overflow-hidden rounded-lg border border-gray-200">
             <button onClick={printPlan} title="Als PDF drucken/speichern"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition">
+              className="flex min-w-0 items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 sm:px-3">
               <Printer className="w-3.5 h-3.5" /> PDF
             </button>
             <button onClick={exportPlanCsv} title="Als CSV herunterladen"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition border-l border-gray-200">
+              className="flex min-w-0 items-center justify-center gap-1.5 border-l border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 sm:px-3">
               <Download className="w-3.5 h-3.5" /> CSV
             </button>
           </div>
           <button onClick={deleteAllShifts}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition">
+            className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:px-3">
             <Trash2 className="w-3.5 h-3.5" /> Plan leeren
           </button>
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+          <div className="col-span-2 grid min-w-0 grid-cols-2 overflow-hidden rounded-lg border border-gray-200 sm:col-auto sm:flex">
             {(["week","month"] as const).map(v => (
               <button key={v} onClick={() => setView(v)}
-                className={cn("px-3 py-1.5 text-xs font-medium transition",
+                className={cn("min-w-0 px-3 py-1.5 text-xs font-medium transition",
                   view === v ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50")}>
                 {v === "week" ? "Woche" : "Monat"}
               </button>
@@ -508,26 +510,26 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
       {/* Offene Schichten */}
       {openShifts.length > 0 && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-3.5 mb-4">
-          <div className="flex items-center gap-2 mb-2.5">
+          <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             <LifeBuoy className="w-4 h-4 text-orange-600" />
             <h3 className="text-sm font-semibold text-orange-900">Offene Schichten ({openShifts.length})</h3>
             <span className="text-xs text-orange-700/70">— noch niemandem zugewiesen</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {openShifts.map(s => (
-              <div key={s.id} className="bg-white border border-orange-200 rounded-lg px-3 py-2 flex items-center gap-3">
-                <div>
+              <div key={s.id} className="flex w-full min-w-0 flex-col gap-2 rounded-lg border border-orange-200 bg-white px-3 py-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-800">{s.position}</p>
-                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <p className="flex flex-wrap items-center gap-1 text-xs text-gray-500">
                     <Clock className="w-3 h-3" />{formatDayLabel(s.date)} · {formatTime(s.start_time)}–{formatTime(s.end_time)}
                   </p>
                 </div>
                 <select defaultValue="" onChange={e => assignOpenShift(s.id, e.target.value)}
-                  className="text-xs px-2 py-1.5 rounded-md border border-gray-200 text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                  className="w-full min-w-0 rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/30 sm:w-auto">
                   <option value="" disabled>Zuweisen…</option>
                   {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
-                <button onClick={() => deleteShift(s.id)} className="text-gray-300 hover:text-red-500 transition" title="Löschen">
+                <button onClick={() => deleteShift(s.id)} className="self-end text-gray-300 transition hover:text-red-500 sm:self-auto" title="Löschen">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -589,10 +591,10 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
       <>
       {/* Mobil: Tag-für-Tag statt breiter Matrix */}
       <div className="md:hidden">
-        <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
+        <div className="mb-3 grid min-w-0 grid-cols-7 gap-1 pb-2">
           {weekDays.map((day, idx) => (
             <button key={day.label} onClick={() => setMobileDay(idx)}
-              className={cn("flex-shrink-0 px-3 py-2 rounded-lg text-center transition border",
+              className={cn("min-w-0 rounded-lg border px-1 py-2 text-center transition",
                 idx === mobileDay ? "bg-brand-600 text-white border-brand-600" : "bg-white text-gray-600 border-gray-200",
                 day.isToday && idx !== mobileDay && "border-brand-300")}>
               <div className="text-[10px] font-semibold uppercase">{day.label.split(" ")[0]}</div>

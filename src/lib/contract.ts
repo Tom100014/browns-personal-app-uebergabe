@@ -20,6 +20,7 @@ export type ContractData = {
 
 function fmtDate(d: string): string {
   if (!d) return "________"
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return "________"
   const [y, m, day] = d.split("-")
   return `${day}.${m}.${y}`
 }
@@ -115,7 +116,7 @@ export function buildContract(d: ContractData): { title: string; html: string } 
   <p class="disclaimer">Hinweis: Dieser Vertrag ist eine automatisch erstellte <strong>Vorlage</strong> und stellt keine Rechtsberatung dar. Bitte vor Verwendung von Steuerberater/in bzw. Anwalt/Anwältin prüfen lassen, insbesondere zu Geringfügigkeitsgrenzen, Mindestlohn, Tarif-/Kollektivvertrag, Kündigungsfristen und landesspezifischem Arbeitsrecht.</p>
   `
 
-  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"/><title>${title}</title>
+  const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"/><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:"/><title>${esc(title)}</title>
   <style>
     body{font-family:Arial,Helvetica,sans-serif;color:#111827;max-width:760px;margin:36px auto;padding:0 28px;line-height:1.55;}
     h1{font-size:26px;text-align:center;margin:0 0 4px;font-weight:800;}

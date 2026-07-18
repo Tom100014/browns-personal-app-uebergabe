@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Plus, Pencil, Trash2, X, Check, Phone, Mail, ChevronRight, UserPlus, Loader2, ShieldCheck, UserX } from "lucide-react"
+import { Plus, Pencil, Trash2, X, Check, Phone, Mail, ChevronRight, UserPlus, Loader2, ShieldCheck, UserX, Search, Brain, ChevronDown, ChevronUp } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { formatEuro } from "@/lib/hours"
 import type { Employee } from "@/types"
@@ -13,8 +13,9 @@ const POSITIONS = ["Service","Theke","Küche","Spüle","Bar","Kasse","Reinigung"
 const ROLES: Employee["role"][] = ["employee","manager","admin"]
 const ROLE_LABELS: Record<string,string> = { employee: "Mitarbeiter", manager: "Manager", admin: "Admin" }
 const EMPLOYMENT = ["Vollzeit","Teilzeit","Minijob","Werkstudent","Aushilfe"]
+const DEFAULT_VISIBLE_EMPLOYEES = 12
 
-interface Props { employees: Employee[]; primaryAdminId?: string | null }
+interface Props { employees: Employee[]; primaryAdminId?: string | null; canManageAdmins?: boolean }
 
 type FormState = {
   name: string; email: string; phone: string; position: string
@@ -26,7 +27,7 @@ const emptyForm: FormState = {
   employment_type: "Teilzeit", hourly_wage: "", color: COLORS[0]
 }
 
-export default function EmployeeList({ employees: initial, primaryAdminId = null }: Props) {
+export default function EmployeeList({ employees: initial, primaryAdminId = null, canManageAdmins = false }: Props) {
   const [employees, setEmployees] = useState<Employee[]>(initial)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Employee | null>(null)
@@ -37,12 +38,32 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
   const [accessEmail, setAccessEmail] = useState("")
   const [accessPw, setAccessPw] = useState("")
   const [accessBusy, setAccessBusy] = useState(false)
+  const [query, setQuery] = useState("")
+  const [positionFilter, setPositionFilter] = useState("all")
+  const [roleFilter, setRoleFilter] = useState("all")
+  const [showAllEmployees, setShowAllEmployees] = useState(false)
+  const [intelligenceExpanded, setIntelligenceExpanded] = useState(false)
+
+  const positions = useMemo(() => [...new Set(employees.map(employee => employee.position).filter(Boolean))].sort(), [employees])
+  const filteredEmployees = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("de-DE")
+    return employees.filter(employee => {
+      const matchesQuery = !needle || [employee.name, employee.email, employee.phone, employee.position, employee.employment_type]
+        .some(value => value?.toLocaleLowerCase("de-DE").includes(needle))
+      const matchesPosition = positionFilter === "all" || employee.position === positionFilter
+      const matchesRole = roleFilter === "all" || employee.role === roleFilter
+      return matchesQuery && matchesPosition && matchesRole
+    })
+  }, [employees, positionFilter, query, roleFilter])
+  const visibleEmployees = showAllEmployees ? filteredEmployees : filteredEmployees.slice(0, DEFAULT_VISIBLE_EMPLOYEES)
 
   function openAccess(emp: Employee) {
+    if (emp.role === "admin" && !canManageAdmins) return
     setAccessFor(emp); setAccessEmail(emp.email); setAccessPw(""); setInviteMsg(null)
   }
 
   function openEdit(emp: Employee) {
+    if (emp.role === "admin" && !canManageAdmins) return
     setEditing(emp)
     setForm({
       name: emp.name, email: emp.email, phone: emp.phone ?? "", position: emp.position, role: emp.role,
@@ -136,6 +157,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
   }
 
   async function remove(id: string) {
+    if (!canManageAdmins && employees.find(employee => employee.id === id)?.role === "admin") return
     if (id === primaryAdminId) {
       setInviteMsg("Die Hauptberechtigte kann nicht gelöscht werden.")
       return
@@ -147,7 +169,12 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
   }
 
   return (
-    <>
+    <div id="employee-list" data-intelligence-expanded={intelligenceExpanded ? "true" : "false"}>
+      <style jsx global>{`
+        div:has(> #employee-list[data-intelligence-expanded="false"]) > div:has(> .floating-card) > .floating-card {
+          display: none;
+        }
+      `}</style>
       {inviteMsg && (
         <div className="mb-4 flex items-start gap-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
           <p className="text-sm text-brand-900 flex-1">{inviteMsg}</p>
@@ -155,20 +182,67 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
         </div>
       )}
 
-      <div className="flex justify-end mb-4">
+      <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <button
+          type="button"
+          onClick={() => setIntelligenceExpanded(current => !current)}
+          aria-expanded={intelligenceExpanded}
+          className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-left text-sm font-semibold text-gray-700 transition hover:border-brand-200 hover:bg-brand-50/40"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Brain className="h-4 w-4 shrink-0 text-brand-600" />
+            <span className="truncate">Team Intelligence {intelligenceExpanded ? "ausblenden" : "anzeigen"}</span>
+          </span>
+          {intelligenceExpanded ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+        </button>
         <button onClick={() => { setEditing(null); setForm(emptyForm); setShowForm(true) }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700">
           <Plus className="w-4 h-4" /> Mitarbeiter hinzufügen
         </button>
       </div>
 
+      <div className="mb-2 grid min-w-0 gap-2 sm:grid-cols-[minmax(12rem,1fr)_minmax(9rem,auto)_minmax(8rem,auto)]">
+        <label className="relative min-w-0">
+          <span className="sr-only">Mitarbeiter suchen</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={event => { setQuery(event.target.value); setShowAllEmployees(false) }}
+            placeholder="Name, Kontakt oder Position suchen"
+            className="w-full min-w-0 rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
+          />
+        </label>
+        <select
+          value={positionFilter}
+          onChange={event => { setPositionFilter(event.target.value); setShowAllEmployees(false) }}
+          aria-label="Nach Position filtern"
+          className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
+        >
+          <option value="all">Alle Positionen</option>
+          {positions.map(position => <option key={position} value={position}>{position}</option>)}
+        </select>
+        <select
+          value={roleFilter}
+          onChange={event => { setRoleFilter(event.target.value); setShowAllEmployees(false) }}
+          aria-label="Nach Rolle filtern"
+          className="w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
+        >
+          <option value="all">Alle Rollen</option>
+          {ROLES.map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+        </select>
+      </div>
+      <p className="mb-4 text-xs text-gray-400">{filteredEmployees.length} von {employees.length} Mitarbeitern</p>
+
       {employees.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl text-center py-12 text-gray-400 text-sm">Noch keine Mitarbeiter eingetragen.</div>
+      ) : filteredEmployees.length === 0 ? (
+        <div className="rounded-xl border border-gray-200 bg-white py-12 text-center text-sm text-gray-400">Keine Mitarbeiter für diese Suche oder Filter.</div>
       ) : (
       <>
       {/* Mobile: Karten-Layout (Aktionen werden nicht abgeschnitten) */}
       <div className="sm:hidden space-y-2.5">
-        {employees.map(emp => (
+        {visibleEmployees.map(emp => (
           <div key={emp.id} className="bg-white border border-gray-200 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <Link href={`/mitarbeiter/${emp.id}`} className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ backgroundColor: emp.color }}>
@@ -189,14 +263,14 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
             </div>
             {emp.email && <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5 truncate"><Mail className="w-3 h-3 flex-shrink-0" />{emp.email}</p>}
             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
-              <button onClick={() => openAccess(emp)}
+              {(canManageAdmins || emp.role !== "admin") && <button onClick={() => openAccess(emp)}
                 className={cn("inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition",
                   emp.auth_user_id ? "border-emerald-200 text-emerald-700" : "border-brand-200 text-brand-700")}>
                 {emp.auth_user_id ? <Check className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
                 {emp.auth_user_id ? "Zugang" : "Zugang einrichten"}
-              </button>
-              <button onClick={() => openEdit(emp)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400" title="Bearbeiten"><Pencil className="w-4 h-4" /></button>
-              {emp.id !== primaryAdminId && <button onClick={() => remove(emp.id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600" title="Löschen"><Trash2 className="w-4 h-4" /></button>}
+              </button>}
+              {(canManageAdmins || emp.role !== "admin") && <button onClick={() => openEdit(emp)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400" title="Bearbeiten"><Pencil className="w-4 h-4" /></button>}
+              {emp.id !== primaryAdminId && (canManageAdmins || emp.role !== "admin") && <button onClick={() => remove(emp.id)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600" title="Löschen"><Trash2 className="w-4 h-4" /></button>}
               <Link href={`/mitarbeiter/${emp.id}`} className="ml-auto p-2 rounded-lg hover:bg-brand-50 text-gray-400 hover:text-brand-600" title="Personalakte"><ChevronRight className="w-5 h-5" /></Link>
             </div>
           </div>
@@ -217,7 +291,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {employees.map(emp => (
+              {visibleEmployees.map(emp => (
                 <tr key={emp.id} className="hover:bg-gray-50/50 transition">
                   <td className="px-5 py-3">
                     <Link href={`/mitarbeiter/${emp.id}`} className="flex items-center gap-3 group/name">
@@ -252,17 +326,17 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end items-center">
-                      <button onClick={() => openAccess(emp)}
+                      {(canManageAdmins || emp.role !== "admin") && <button onClick={() => openAccess(emp)}
                         className={cn("inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition mr-1",
                           emp.auth_user_id ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "border-brand-200 text-brand-700 hover:bg-brand-50")}
                         title="App-Zugang verwalten">
                         {emp.auth_user_id ? <Check className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
                         {emp.auth_user_id ? "Zugang" : "Zugang einrichten"}
-                      </button>
-                      <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition" title="Schnell bearbeiten">
+                      </button>}
+                      {(canManageAdmins || emp.role !== "admin") && <button onClick={() => openEdit(emp)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition" title="Schnell bearbeiten">
                         <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      {emp.id !== primaryAdminId && <button onClick={() => remove(emp.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="Löschen">
+                      </button>}
+                      {emp.id !== primaryAdminId && (canManageAdmins || emp.role !== "admin") && <button onClick={() => remove(emp.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="Löschen">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>}
                       <Link href={`/mitarbeiter/${emp.id}`} className="p-1.5 rounded-lg hover:bg-brand-50 text-gray-400 hover:text-brand-600 transition" title="Personalakte öffnen">
@@ -275,12 +349,25 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
             </tbody>
           </table>
       </div>
+      {filteredEmployees.length > DEFAULT_VISIBLE_EMPLOYEES && (
+        <button
+          type="button"
+          onClick={() => setShowAllEmployees(current => !current)}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+        >
+          {showAllEmployees ? (
+            <>Weniger anzeigen <ChevronUp className="h-4 w-4" /></>
+          ) : (
+            <>{filteredEmployees.length - DEFAULT_VISIBLE_EMPLOYEES} weitere anzeigen <ChevronDown className="h-4 w-4" /></>
+          )}
+        </button>
+      )}
       </>
       )}
 
       {accessFor && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 w-full max-w-md shadow-xl">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl sm:p-6">
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-semibold text-gray-900">App-Zugang · {accessFor.name}</h3>
               <button onClick={() => setAccessFor(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
@@ -305,7 +392,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
             <label className="text-xs text-gray-500 mb-1 block font-medium">Passwort direkt vergeben</label>
             <div className="flex gap-2 mb-1.5">
               <input type="text" value={accessPw} onChange={e => setAccessPw(e.target.value)} placeholder="mind. 8 Zeichen"
-                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
+                className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
               <button onClick={setDirectPassword} disabled={accessBusy || accessPw.length < 8 || !accessEmail}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition disabled:opacity-50">
                 {accessBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Setzen"}
@@ -333,7 +420,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
 
       {showForm && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 w-full max-w-md shadow-xl">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl sm:p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-semibold text-gray-900">{editing ? "Bearbeiten" : "Neuer Mitarbeiter"}</h3>
               <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
@@ -348,24 +435,24 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
               <div><label className="text-xs text-gray-500 mb-1 block font-medium">Telefon</label>
                 <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+43 664 …"
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-gray-500 mb-1 block font-medium">Position</label>
+              <div className="grid min-w-0 grid-cols-2 gap-3">
+                <div className="min-w-0"><label className="text-xs text-gray-500 mb-1 block font-medium">Position</label>
                   <select value={form.position} onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
+                    className="w-full min-w-0 px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
                     {POSITIONS.map(p => <option key={p}>{p}</option>)}</select></div>
-                <div><label className="text-xs text-gray-500 mb-1 block font-medium">Rolle</label>
+                <div className="min-w-0"><label className="text-xs text-gray-500 mb-1 block font-medium">Rolle</label>
                   <select value={editing?.id === primaryAdminId ? "admin" : form.role} disabled={editing?.id === primaryAdminId} onChange={e => setForm(f => ({ ...f, role: e.target.value as Employee["role"] }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 disabled:bg-gray-100 disabled:text-gray-500">
-                    {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
+                    className="w-full min-w-0 px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 disabled:bg-gray-100 disabled:text-gray-500">
+                    {ROLES.filter(role => canManageAdmins || role !== "admin").map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}</select></div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs text-gray-500 mb-1 block font-medium">Anstellungsart</label>
+              <div className="grid min-w-0 grid-cols-2 gap-3">
+                <div className="min-w-0"><label className="text-xs text-gray-500 mb-1 block font-medium">Anstellungsart</label>
                   <select value={form.employment_type} onChange={e => setForm(f => ({ ...f, employment_type: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
+                    className="w-full min-w-0 px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
                     {EMPLOYMENT.map(t => <option key={t}>{t}</option>)}</select></div>
-                <div><label className="text-xs text-gray-500 mb-1 block font-medium">Stundenlohn €</label>
+                <div className="min-w-0"><label className="text-xs text-gray-500 mb-1 block font-medium">Stundenlohn €</label>
                   <input type="text" inputMode="decimal" value={form.hourly_wage} onChange={e => setForm(f => ({ ...f, hourly_wage: e.target.value }))}
-                    placeholder="14,50" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" /></div>
+                    placeholder="14,50" className="w-full min-w-0 px-3 py-2 rounded-lg border border-gray-300 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" /></div>
               </div>
               <div><label className="text-xs text-gray-500 mb-2 block font-medium">Farbe</label>
                 <div className="flex gap-2 flex-wrap">{COLORS.map(c => (
@@ -387,6 +474,6 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

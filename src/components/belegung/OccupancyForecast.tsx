@@ -2,12 +2,15 @@
 
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
-import { Sun, CloudSun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog, CalendarDays, Plus, Trash2, ArrowRight, TriangleAlert, Sparkles, ThumbsUp, EyeOff, Brain } from "lucide-react"
+import { Sun, CloudSun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog, CalendarDays, Plus, Trash2, ArrowRight, TriangleAlert, Sparkles, ThumbsUp, EyeOff, Brain, ChevronDown } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { EVENT_TYPES, eventsOnDate, occupancyScore, levelFor, staffingHint, defaultImpactFor, eventLearningLabel, type EventRow } from "@/lib/forecast"
 
 type Wx = { date: string; code: number; tmax: number; rain: number }
+type EventFilter = "all" | "impact" | "neutral"
+
+const EVENTS_PER_DAY = 4
 
 function wxIcon(code: number) {
   if (code === 0) return { Icon: Sun, color: "text-amber-500" }
@@ -21,6 +24,7 @@ function wxIcon(code: number) {
 }
 const dayName = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { weekday: "short" })
 const dayShort = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })
+const dayLong = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long" })
 const addDays = (date: string, days: number) => {
   const d = new Date(date + "T12:00:00")
   d.setDate(d.getDate() + days)
@@ -35,6 +39,8 @@ export default function OccupancyForecast({ compact = false }: { compact?: boole
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ date: "", end_date: "", type: "messe", title: "", note: "" })
   const [learningId, setLearningId] = useState<string | null>(null)
+  const [eventFilter, setEventFilter] = useState<EventFilter>("all")
+  const [expandedEventDays, setExpandedEventDays] = useState<string[]>([])
 
   const loadWeather = useCallback(async (c: string) => {
     try {
@@ -95,7 +101,7 @@ export default function OccupancyForecast({ compact = false }: { compact?: boole
   async function refreshEvents() {
     setRefreshing(true); setRefreshMsg(null)
     try {
-      const res = await fetch("/api/events/refresh")
+      const res = await fetch("/api/events/refresh", { method: "POST" })
       const data = await res.json()
       if (data.note) setRefreshMsg(data.note)
       else if (typeof data.added === "number") setRefreshMsg(`${data.added} neue Veranstaltung(en) gefunden.`)
@@ -120,6 +126,17 @@ export default function OccupancyForecast({ compact = false }: { compact?: boole
   const todayF = days[0]
   const notableEvents = events.filter(e => Number(e.impact) !== 0)
   const neutralEvents = events.filter(e => Number(e.impact) === 0)
+  const filteredEvents = events.filter(e => {
+    if (eventFilter === "impact") return Number(e.impact) !== 0
+    if (eventFilter === "neutral") return Number(e.impact) === 0
+    return true
+  })
+  const eventGroups = days
+    .map(day => ({
+      date: day.date,
+      events: filteredEvents.filter(event => (event.date < today ? today : event.date) === day.date),
+    }))
+    .filter(group => group.events.length > 0)
   const todayEventSummary = todayF?.evs.length
     ? `${todayF.evs.slice(0, 3).map(e => e.title).join(", ")}${todayF.evs.length > 3 ? ` +${todayF.evs.length - 3} weitere` : ""}`
     : ""
@@ -155,7 +172,7 @@ export default function OccupancyForecast({ compact = false }: { compact?: boole
         {!city ? (
           <p className="text-sm text-slate-400">Standort in den Einstellungen/Dashboard (Wetter) setzen, um die Prognose zu sehen.</p>
         ) : (
-          <div className={cn("grid gap-3", compact ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-7")}>
+          <div className={cn("grid gap-3", compact ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-7")}>
             {days.map(d => {
               const { Icon, color } = d.w ? wxIcon(d.w.code) : { Icon: Cloud, color: "text-slate-300" }
               const relevant = d.evs.filter(e => Number(e.impact) !== 0)
@@ -204,65 +221,122 @@ export default function OccupancyForecast({ compact = false }: { compact?: boole
           {refreshMsg && <p className="text-xs text-gray-500 mb-3">{refreshMsg}</p>}
           <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
             <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              className="px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+              className="w-full min-w-0 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
             <input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} title="Bis (optional)"
-              className="px-3 py-2 rounded-xl border border-gray-300 text-sm text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+              className="w-full min-w-0 rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
             <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-              className="px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+              className="w-full min-w-0 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30">
               {EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Titel (z.B. Spielwarenmesse)"
-              className="lg:col-span-2 px-3 py-2 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+              className="w-full min-w-0 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 lg:col-span-2" />
             <button onClick={addEvent} disabled={!form.date || !form.title}
               className="inline-flex items-center justify-center gap-1 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition disabled:opacity-50">
               <Plus className="w-4 h-4" /> Eintragen
             </button>
           </div>
+          {events.length > 0 && (
+            <div className="mb-4 grid min-w-0 grid-cols-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Veranstaltungen filtern">
+              {([
+                ["all", `Alle ${events.length}`],
+                ["impact", `Einfluss ${notableEvents.length}`],
+                ["neutral", `Neutral ${neutralEvents.length}`],
+              ] as [EventFilter, string][]).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setEventFilter(value)}
+                  aria-pressed={eventFilter === value}
+                  className={cn(
+                    "min-w-0 rounded-lg px-1.5 py-2 text-[11px] font-bold transition sm:px-3 sm:text-xs",
+                    eventFilter === value ? "bg-white text-brand-700 shadow-sm" : "text-slate-500 hover:text-slate-700",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           {events.length === 0 ? (
             <p className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">Keine Events in den nächsten 7 Tagen. Trage Messen, Stadtfeste, Ferien, Baustellen oder Wetterlagen ein.</p>
+          ) : eventGroups.length === 0 ? (
+            <p className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">Keine Events entsprechen diesem Filter.</p>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
-              {events.map(e => {
-                const t = EVENT_TYPES.find(x => x.value === e.type)
-                const learning = eventLearningLabel(e)
+            <div className="space-y-2.5">
+              {eventGroups.map(group => {
+                const expanded = expandedEventDays.includes(group.date)
+                const visibleEvents = expanded ? group.events : group.events.slice(0, EVENTS_PER_DAY)
+                const impactCount = group.events.filter(event => Number(event.impact) !== 0).length
                 return (
-                  <div key={e.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-card">
-                    <div className="mb-3 flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
-                        <span className="text-[10px] font-bold uppercase">{dayName(e.date)}</span>
-                        <span className="stat-number text-lg leading-none">{dayShort(e.date).slice(0, 2)}</span>
-                      </div>
+                  <details key={group.date} className="group overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70">
+                    <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3 marker:content-none sm:px-4">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-slate-950">{e.title}</p>
-                        <p className="mt-1 text-xs text-slate-400">{t?.label ?? e.type}{e.end_date && e.end_date !== e.date ? ` · bis ${dayShort(e.end_date)}` : ""}</p>
+                        <p className="truncate text-sm font-bold capitalize text-slate-900">{dayLong(group.date)}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {group.events.length} {group.events.length === 1 ? "Event" : "Events"} · {impactCount} mit Einfluss
+                        </p>
                       </div>
-                      <button onClick={() => delEvent(e.id)} className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500" aria-label="Event löschen">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" />
+                    </summary>
+                    <div className="border-t border-slate-200 bg-white p-3 sm:p-4">
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        {visibleEvents.map(e => {
+                          const t = EVENT_TYPES.find(x => x.value === e.type)
+                          const learning = eventLearningLabel(e)
+                          return (
+                            <div key={e.id} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
+                              <div className="mb-3 flex min-w-0 items-start gap-3">
+                                <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+                                  <span className="text-[10px] font-bold uppercase">{dayName(e.date)}</span>
+                                  <span className="stat-number text-lg leading-none">{dayShort(e.date).slice(0, 2)}</span>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="break-words text-sm font-bold text-slate-950">{e.title}</p>
+                                  <p className="mt-1 text-xs text-slate-400">{t?.label ?? e.type}{e.end_date && e.end_date !== e.date ? ` · bis ${dayShort(e.end_date)}` : ""}</p>
+                                </div>
+                                <button onClick={() => delEvent(e.id)} className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500" aria-label="Event löschen">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                              <div className="mb-3 flex flex-wrap items-center gap-2">
+                                <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold",
+                                  learning === "relevant" ? "bg-emerald-50 text-emerald-700" :
+                                  learning === "bremsend" ? "bg-red-50 text-red-700" :
+                                  "bg-slate-100 text-slate-500")}>
+                                  <Brain className="h-3.5 w-3.5" />
+                                  {learning === "relevant" ? "nennenswert" : learning === "bremsend" ? "negativer Einfluss" : "ohne Einfluss"}
+                                </span>
+                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+                                  Einfluss {e.impact > 0 ? `+${e.impact}` : e.impact}
+                                </span>
+                              </div>
+                              <div className="grid min-w-0 grid-cols-2 gap-2">
+                                <button onClick={() => markEvent(e, true)} disabled={learningId === e.id}
+                                  className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl bg-brand-500 px-2 py-2 text-xs font-bold text-white transition hover:bg-brand-600 disabled:opacity-60 sm:px-3">
+                                  <ThumbsUp className="h-3.5 w-3.5 shrink-0" /> Nennenswert
+                                </button>
+                                <button onClick={() => markEvent(e, false)} disabled={learningId === e.id}
+                                  className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-2 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60 sm:px-3">
+                                  <EyeOff className="h-3.5 w-3.5 shrink-0" /> Nicht relevant
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {group.events.length > EVENTS_PER_DAY && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedEventDays(current => expanded
+                            ? current.filter(date => date !== group.date)
+                            : [...current, group.date])}
+                          className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                        >
+                          {expanded ? "Weniger anzeigen" : `${group.events.length - EVENTS_PER_DAY} weitere an diesem Tag`}
+                        </button>
+                      )}
                     </div>
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold",
-                        learning === "relevant" ? "bg-emerald-50 text-emerald-700" :
-                        learning === "bremsend" ? "bg-red-50 text-red-700" :
-                        "bg-slate-100 text-slate-500")}>
-                        <Brain className="h-3.5 w-3.5" />
-                        {learning === "relevant" ? "nennenswert" : learning === "bremsend" ? "negativer Einfluss" : "nicht bewertet"}
-                      </span>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
-                        Einfluss {e.impact > 0 ? `+${e.impact}` : e.impact}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => markEvent(e, true)} disabled={learningId === e.id}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-600 disabled:opacity-60">
-                        <ThumbsUp className="h-3.5 w-3.5" /> Nennenswert
-                      </button>
-                      <button onClick={() => markEvent(e, false)} disabled={learningId === e.id}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60">
-                        <EyeOff className="h-3.5 w-3.5" /> Nicht relevant
-                      </button>
-                    </div>
-                  </div>
+                  </details>
                 )
               })}
             </div>

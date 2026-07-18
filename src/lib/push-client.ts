@@ -59,6 +59,7 @@ type NotifyPayload = {
   tag?: string
   employeeIds?: string[]
   audience?: "all" | "self"
+  chatMessageId?: string
 }
 
 /** Fire-and-forget push dispatch (server decides recipients/subscriptions). */

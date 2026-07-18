@@ -12,7 +12,7 @@ export default async function PortalVertretung() {
       .select("*, offers:coverage_offers(*)")
       .eq("status", "open")
       .order("date"),
-    supabase.from("employees").select("id,name,color,position,role").order("name"),
+    supabase.from("employee_directory").select("id,name,color,position,role").order("name"),
   ])
 
   return (

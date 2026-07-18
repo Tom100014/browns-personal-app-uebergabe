@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type KeyboardEvent } from "react"
 import Link from "next/link"
 import { ArrowLeft, Save, Check, IdCard, FileText, Clock, CalendarOff, FileSignature } from "lucide-react"
 import { createClient } from "@/lib/supabase"
@@ -111,18 +111,32 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
     { id: "abwesenheiten", label: "Abwesenheiten", icon: CalendarOff, count: absences.length },
   ]
 
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let nextIndex: number | null = null
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length
+    if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length
+    if (event.key === "Home") nextIndex = 0
+    if (event.key === "End") nextIndex = tabs.length - 1
+    if (nextIndex === null) return
+
+    event.preventDefault()
+    const nextTab = tabs[nextIndex]
+    setTab(nextTab.id)
+    document.getElementById(`employee-tab-${nextTab.id}`)?.focus()
+  }
+
   const inputCls = "w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
   const labelCls = "text-xs text-gray-500 mb-1 block font-medium"
 
   return (
     <div>
-      <Link href="/mitarbeiter" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition">
-        <ArrowLeft className="w-4 h-4" /> Alle Mitarbeiter
+      <Link href="/mitarbeiter" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition">
+        <ArrowLeft aria-hidden="true" className="w-4 h-4" /> Alle Mitarbeiter
       </Link>
 
       {/* Header card */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
+        <div aria-hidden="true" className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
           style={{ backgroundColor: employee.color }}>
           {employee.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
         </div>
@@ -141,75 +155,79 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto">
-        {tabs.map(({ id, label, icon: Icon, count }) => (
-          <button key={id} onClick={() => setTab(id)}
+      <div className="flex gap-1 border-b border-gray-200 mb-5 overflow-x-auto" role="tablist" aria-label="Mitarbeiterdetails">
+        {tabs.map(({ id, label, icon: Icon, count }, index) => (
+          <button key={id} id={`employee-tab-${id}`} type="button" role="tab" aria-selected={tab === id}
+            aria-controls={`employee-panel-${id}`} tabIndex={tab === id ? 0 : -1}
+            onClick={() => setTab(id)} onKeyDown={event => handleTabKeyDown(event, index)}
             className={cn("flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition",
               tab === id ? "border-brand-600 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-800")}>
-            <Icon className="w-4 h-4" />
+            <Icon aria-hidden="true" className="w-4 h-4" />
             {label}
-            {count != null && <span className="text-xs text-gray-400">({count})</span>}
+            {count != null && <span className="text-xs text-gray-400"><span className="sr-only">, </span>({count})</span>}
           </button>
         ))}
       </div>
 
       {/* Stammdaten */}
       {tab === "stammdaten" && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <form id="employee-panel-stammdaten" role="tabpanel" aria-labelledby="employee-tab-stammdaten" tabIndex={0}
+          onSubmit={event => { event.preventDefault(); void save() }} className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="grid sm:grid-cols-2 gap-4">
-            <div><label className={labelCls}>Name</label><input className={inputCls} value={form.name} onChange={e => set("name", e.target.value)} /></div>
-            <div><label className={labelCls}>E-Mail</label><input className={inputCls} value={form.email} onChange={e => set("email", e.target.value)} /></div>
-            <div><label className={labelCls}>Telefon</label><input className={inputCls} value={form.phone} onChange={e => set("phone", e.target.value)} /></div>
-            <div><label className={labelCls}>Adresse</label><input className={inputCls} value={form.address} onChange={e => set("address", e.target.value)} /></div>
-            <div><label className={labelCls}>Position</label>
-              <select className={inputCls} value={form.position} onChange={e => set("position", e.target.value)}>
+            <div><label htmlFor="employee-name" className={labelCls}>Name</label><input id="employee-name" name="name" autoComplete="name" className={inputCls} value={form.name} onChange={e => set("name", e.target.value)} /></div>
+            <div><label htmlFor="employee-email" className={labelCls}>E-Mail</label><input id="employee-email" name="email" type="email" autoComplete="email" className={inputCls} value={form.email} onChange={e => set("email", e.target.value)} /></div>
+            <div><label htmlFor="employee-phone" className={labelCls}>Telefon</label><input id="employee-phone" name="phone" type="tel" autoComplete="tel" className={inputCls} value={form.phone} onChange={e => set("phone", e.target.value)} /></div>
+            <div><label htmlFor="employee-address" className={labelCls}>Adresse</label><input id="employee-address" name="address" autoComplete="street-address" className={inputCls} value={form.address} onChange={e => set("address", e.target.value)} /></div>
+            <div><label htmlFor="employee-position" className={labelCls}>Position</label>
+              <select id="employee-position" name="position" className={inputCls} value={form.position} onChange={e => set("position", e.target.value)}>
                 {POSITIONS.map(p => <option key={p}>{p}</option>)}
               </select>
             </div>
-            <div><label className={labelCls}>Rolle</label>
-              <select className={inputCls} value={form.role} onChange={e => set("role", e.target.value)}>
+            <div><label htmlFor="employee-role" className={labelCls}>Rolle</label>
+              <select id="employee-role" name="role" className={inputCls} value={form.role} onChange={e => set("role", e.target.value)}>
                 {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
-            <div><label className={labelCls}>Anstellungsart</label>
-              <select className={inputCls} value={form.employment_type} onChange={e => set("employment_type", e.target.value)}>
+            <div><label htmlFor="employee-employment-type" className={labelCls}>Anstellungsart</label>
+              <select id="employee-employment-type" name="employment_type" className={inputCls} value={form.employment_type} onChange={e => set("employment_type", e.target.value)}>
                 {EMPLOYMENT.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={labelCls}>Stundenlohn €</label><input type="text" inputMode="decimal" placeholder="14,50" className={inputCls} value={form.hourly_wage} onChange={e => set("hourly_wage", e.target.value)} /></div>
-              <div><label className={labelCls}>Wochenstd.</label><input type="text" inputMode="decimal" placeholder="20" className={inputCls} value={form.weekly_hours} onChange={e => set("weekly_hours", e.target.value)} /></div>
+              <div><label htmlFor="employee-hourly-wage" className={labelCls}>Stundenlohn €</label><input id="employee-hourly-wage" name="hourly_wage" type="text" inputMode="decimal" placeholder="14,50" className={inputCls} value={form.hourly_wage} onChange={e => set("hourly_wage", e.target.value)} /></div>
+              <div><label htmlFor="employee-weekly-hours" className={labelCls}>Wochenstd.</label><input id="employee-weekly-hours" name="weekly_hours" type="text" inputMode="decimal" placeholder="20" className={inputCls} value={form.weekly_hours} onChange={e => set("weekly_hours", e.target.value)} /></div>
             </div>
-            <div><label className={labelCls}>Urlaubsanspruch (Tage/Jahr)</label><input type="text" inputMode="numeric" placeholder="28" className={inputCls} value={form.vacation_days_per_year} onChange={e => set("vacation_days_per_year", e.target.value)} /></div>
+            <div><label htmlFor="employee-vacation-days" className={labelCls}>Urlaubsanspruch (Tage/Jahr)</label><input id="employee-vacation-days" name="vacation_days_per_year" type="text" inputMode="numeric" placeholder="28" className={inputCls} value={form.vacation_days_per_year} onChange={e => set("vacation_days_per_year", e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className={labelCls}>Eintrittsdatum</label><input type="date" className={inputCls} value={form.start_date} onChange={e => set("start_date", e.target.value)} /></div>
-              <div><label className={labelCls}>Personalnummer</label><input type="text" inputMode="numeric" placeholder="z.B. 1001" className={inputCls} value={form.personnel_number} onChange={e => set("personnel_number", e.target.value)} /></div>
+              <div><label htmlFor="employee-start-date" className={labelCls}>Eintrittsdatum</label><input id="employee-start-date" name="start_date" type="date" className={inputCls} value={form.start_date} onChange={e => set("start_date", e.target.value)} /></div>
+              <div><label htmlFor="employee-personnel-number" className={labelCls}>Personalnummer</label><input id="employee-personnel-number" name="personnel_number" type="text" inputMode="numeric" placeholder="z.B. 1001" className={inputCls} value={form.personnel_number} onChange={e => set("personnel_number", e.target.value)} /></div>
             </div>
-            <div><label className={labelCls}>Geburtsdatum</label><input type="date" className={inputCls} value={form.birth_date} onChange={e => set("birth_date", e.target.value)} /></div>
-            <div className="sm:col-span-2"><label className={labelCls}>Notizen</label>
-              <textarea rows={3} className={inputCls} value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Interne Notizen, z.B. Allergien, Verfügbarkeiten …" />
+            <div><label htmlFor="employee-birth-date" className={labelCls}>Geburtsdatum</label><input id="employee-birth-date" name="birth_date" type="date" autoComplete="bday" className={inputCls} value={form.birth_date} onChange={e => set("birth_date", e.target.value)} /></div>
+            <div className="sm:col-span-2"><label htmlFor="employee-notes" className={labelCls}>Notizen</label>
+              <textarea id="employee-notes" name="notes" rows={3} className={inputCls} value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Interne Notizen, z.B. Allergien, Verfügbarkeiten …" />
             </div>
           </div>
-          <button onClick={save} disabled={saving}
+          <p className="sr-only" role="status" aria-live="polite">{saved ? "Mitarbeiterdaten gespeichert." : ""}</p>
+          <button type="submit" disabled={saving} aria-busy={saving}
             className="mt-5 flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition disabled:opacity-50">
-            {saved ? <><Check className="w-4 h-4" /> Gespeichert</> : <><Save className="w-4 h-4" /> Speichern</>}
+            {saved ? <><Check aria-hidden="true" className="w-4 h-4" /> Gespeichert</> : <><Save aria-hidden="true" className="w-4 h-4" /> Speichern</>}
           </button>
-        </div>
+        </form>
       )}
 
       {/* Vertrag */}
-      {tab === "vertrag" && <ContractGenerator employee={employee} />}
+      {tab === "vertrag" && <div id="employee-panel-vertrag" role="tabpanel" aria-labelledby="employee-tab-vertrag" tabIndex={0}><ContractGenerator employee={employee} /></div>}
 
       {/* Dokumente */}
       {tab === "dokumente" && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <div id="employee-panel-dokumente" role="tabpanel" aria-labelledby="employee-tab-dokumente" tabIndex={0} className="bg-white border border-gray-200 rounded-xl p-5">
           <DocumentManager employeeId={employee.id} documents={documents} />
         </div>
       )}
 
       {/* Arbeitszeiten */}
       {tab === "zeiten" && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div id="employee-panel-zeiten" role="tabpanel" aria-labelledby="employee-tab-zeiten" tabIndex={0} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-900">Erfasste Arbeitszeiten</h3>
             <span className="text-sm font-semibold text-gray-700">
@@ -224,11 +242,11 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
               <table className="w-full text-sm min-w-[460px]">
                 <thead className="border-b border-gray-100">
                   <tr className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-                    <th className="text-left px-5 py-2.5">Datum</th>
-                    <th className="text-left px-4 py-2.5">Von</th>
-                    <th className="text-left px-4 py-2.5">Bis</th>
-                    <th className="text-left px-4 py-2.5">Pause</th>
-                    <th className="text-right px-5 py-2.5">Stunden</th>
+                    <th scope="col" className="text-left px-5 py-2.5">Datum</th>
+                    <th scope="col" className="text-left px-4 py-2.5">Von</th>
+                    <th scope="col" className="text-left px-4 py-2.5">Bis</th>
+                    <th scope="col" className="text-left px-4 py-2.5">Pause</th>
+                    <th scope="col" className="text-right px-5 py-2.5">Stunden</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -250,7 +268,7 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
 
       {/* Abwesenheiten */}
       {tab === "abwesenheiten" && (
-        <>
+        <div id="employee-panel-abwesenheiten" role="tabpanel" aria-labelledby="employee-tab-abwesenheiten" tabIndex={0}>
         <div className="grid grid-cols-3 gap-3 mb-4">
           {[
             { label: `Urlaubsanspruch ${currentYear}`, value: `${vacationEntitlement} Tage`, cls: "text-gray-900" },
@@ -290,7 +308,7 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
             </div>
           )}
         </div>
-        </>
+        </div>
       )}
     </div>
   )

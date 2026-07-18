@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { createClient } from "@/lib/supabase-server"
 import type { Employee } from "@/types"
 
@@ -15,7 +16,7 @@ export type CurrentStaff = {
  * The owner account (admin@browns.at) is always treated as management,
  * even without a matching employees row.
  */
-export async function getCurrentStaff(): Promise<CurrentStaff | null> {
+async function resolveCurrentStaff(): Promise<CurrentStaff | null> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -31,3 +32,6 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
 
   return { userId: user.id, email: user.email ?? null, employee: emp, isManager }
 }
+
+// Layouts and pages often resolve the same identity during one render request.
+export const getCurrentStaff = cache(resolveCurrentStaff)

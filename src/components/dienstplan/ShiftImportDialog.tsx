@@ -94,12 +94,6 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
 
   async function archiveSource(importedCount: number): Promise<boolean> {
     if (!file) return true
-    const supabase = createClient()
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "_")
-    const filePath = `dienstplan-importe/${Date.now()}-${safeName}`
-    const { error: uploadError } = await supabase.storage.from("knowledge").upload(filePath, file)
-    if (uploadError) return false
-
     const names = [...new Set(validRows.map(row => row.employeeName))]
     const note = encodeKnowledgeNote(
       `${importedCount} Schichten aus ${file.name} in den Dienstplan übernommen. Originaldatei als Nachweis archiviert.`,
@@ -113,14 +107,13 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
         scope: "team",
       },
     )
-    const { error: docError } = await supabase.from("knowledge_docs").insert({
-      title: `Dienstplan-Import: ${file.name}`,
-      note,
-      file_path: filePath,
-      kind: "datei",
-      extracted: `${importedCount} Schichten importiert. Mitarbeiter: ${names.join(", ") || "keine"}.`,
-    })
-    return !docError
+    const payload = new FormData()
+    payload.append("scope", "knowledge")
+    payload.append("title", `Dienstplan-Import: ${file.name}`)
+    payload.append("note", note)
+    payload.append("file", file)
+    const response = await fetch("/api/agent/upload", { method: "POST", body: payload })
+    return response.ok
   }
 
   async function importRows() {
@@ -187,7 +180,7 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
               {parsing ? <Loader2 className="h-6 w-6 animate-spin text-brand-600" /> : <Upload className="h-6 w-6 text-brand-600" />}
               <span>
                 <span className="block text-sm font-black text-gray-900">{file?.name ?? "Excel- oder CSV-Datei auswählen"}</span>
-                <span className="mt-1 block text-xs text-gray-500">.xlsx, .csv oder .tsv · maximal 12 MB</span>
+                <span className="mt-1 block text-xs text-gray-500">.xlsx, .csv oder .tsv · maximal 4 MB</span>
               </span>
             </button>
             <input ref={inputRef} type="file" accept=".xlsx,.csv,.tsv" className="hidden" onChange={event => chooseFile(event.target.files?.[0] ?? null)} />

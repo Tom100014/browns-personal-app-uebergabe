@@ -60,7 +60,7 @@ export default function Assistant() {
     setLoading(true)
     setMessages(prev => [...prev, { role: "user", text: "Analysiere die Personalauslastung und lerne daraus." }])
     try {
-      const res = await fetch("/api/agent/learn")
+      const res = await fetch("/api/agent/learn", { method: "POST" })
       const data = await res.json()
       setMessages(prev => [...prev, { role: "assistant", text: data.insight || data.error || "Keine Analyse." }])
       if (data.insight) setMessages(prev => [...prev, { role: "system", text: "In Wissensdatenbank gespeichert — der Agent berücksichtigt das künftig." }])
@@ -74,10 +74,10 @@ export default function Assistant() {
     if (!applyDate) return
     setApplying(true)
     try {
-      const res = await fetch("/api/agent/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planText, date: applyDate }) })
+      const res = await fetch("/api/agent/plan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planText, date: applyDate, humanApproved: true }) })
       const data = await res.json()
-      const msg = data.error
-        ? `Konnte nicht eintragen: ${data.error}`
+      const msg = !res.ok || data.error
+        ? `Konnte nicht eintragen: ${data.message || data.error || "Unbekannter Fehler"}`
         : `✅ ${data.added} Schichten für ${applyDate} eingetragen.${data.unmatched?.length ? ` Nicht zugeordnet: ${data.unmatched.join(", ")}.` : ""} Im Schichtplan sichtbar.`
       setMessages(prev => [...prev, { role: "system", text: msg }])
     } catch {

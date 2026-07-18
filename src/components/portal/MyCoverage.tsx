@@ -67,7 +67,6 @@ export default function MyCoverage({ requests, employees, selfId }: Props) {
     <div className="grid gap-4 sm:grid-cols-2">
       {requests.map(req => {
         const orig = empById(req.original_employee_id)
-        const suggested = empById(req.suggested_employee_id)
         const iOffered = offered[req.id]
         const suggestedIsMe = req.suggested_employee_id === selfId
         return (

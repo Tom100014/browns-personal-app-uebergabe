@@ -24,11 +24,12 @@ import LiveRefresh from "@/components/realtime/LiveRefresh"
 import WeekHoursChart from "@/components/charts/WeekHoursChart"
 import type { CoverageRequest } from "@/types"
 
+type DashboardCoverage = Pick<CoverageRequest, "id" | "date" | "position"> & { offers?: { id: string }[] }
+
 const initials = (name?: string) => (name ?? "—").split(" ").map(n => n[0]).join("").slice(0, 2)
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
   const TZ = "Europe/Berlin"
   const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ }) // yyyy-MM-dd (Café-Zeit)
   const nowHHMM = new Date().toLocaleTimeString("de-DE", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false })
@@ -43,22 +44,26 @@ export default async function DashboardPage() {
   // Choose greeting icon
   const GreetingIcon = hour < 11 ? Sun : hour < 17 ? CloudSun : Moon
 
-  const [{ data: employees }, { data: todayShifts }, { data: openEntries }, { data: pendingAbsences }, { data: openCoverage }, { data: openShifts }, { data: weekShifts }, { data: todayEntries }] = await Promise.all([
-    supabase.from("employees").select("id,name,color,position"),
-    supabase.from("shifts").select("*, employee:employees(name,color)").eq("date", today).order("start_time"),
-    supabase.from("time_entries").select("*, employee:employees(name,color,position)").is("clock_out", null),
-    supabase.from("absences").select("id").eq("status", "pending"),
+  const [{ data: { user } }, { count: employeeCount }, { data: todayShifts }, { data: openEntries }, { count: pendingAbsenceCount }, { data: openCoverage, count: openCoverageCount }, { data: openShifts, count: openShiftCount }, { data: weekShifts }, { data: todayEntries }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from("employees").select("id", { count: "exact", head: true }),
+    supabase.from("shifts").select("id,employee_id,status,start_time,end_time,position,employee:employees(name,color)").eq("date", today).order("start_time"),
+    supabase.from("time_entries").select("id,clock_in,employee:employees(name,color,position)").is("clock_out", null),
+    supabase.from("absences").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("coverage_requests")
-      .select("*, offers:coverage_offers(id)")
+      .select("id,date,position,offers:coverage_offers(id)", { count: "exact" })
       .eq("status", "open")
-      .order("date"),
-    supabase.from("shifts").select("id,date,position,start_time,end_time").is("employee_id", null).gte("date", today).order("date"),
+      .order("date")
+      .limit(3),
+    supabase.from("shifts").select("id,date,position,start_time,end_time", { count: "exact" }).is("employee_id", null).gte("date", today).order("date").limit(3),
     supabase.from("shifts").select("date,start_time,end_time").not("employee_id", "is", null).gte("date", weekStart).lte("date", weekEnd),
     supabase.from("time_entries").select("employee_id").eq("date", today),
   ])
 
-  const coverage = (openCoverage ?? []) as CoverageRequest[]
+  const coverage = (openCoverage ?? []) as DashboardCoverage[]
+  const coverageCount = openCoverageCount ?? 0
   const openShiftList = (openShifts ?? []) as { id: string; date: string; position: string; start_time: string; end_time: string }[]
+  const unfilledShiftCount = openShiftCount ?? 0
 
   // Wer fehlt: Schicht hat begonnen, aber noch nicht eingestempelt
   const clockedIn = new Set((todayEntries ?? []).map((e: { employee_id: string }) => e.employee_id))
@@ -78,10 +83,10 @@ export default async function DashboardPage() {
   const chartData = WD.map((day, i) => ({ day, stunden: Math.round(weekHours[i] * 10) / 10, istHeute: i === todayIdx }))
 
   const stats = [
-    { label: "Mitarbeiter", value: employees?.length ?? 0, icon: Users, color: "text-brand-600", bg: "bg-brand-50/70 border border-brand-100/40", href: "/mitarbeiter" },
+    { label: "Mitarbeiter", value: employeeCount ?? 0, icon: Users, color: "text-brand-600", bg: "bg-brand-50/70 border border-brand-100/40", href: "/mitarbeiter" },
     { label: "Schichten heute", value: todayShifts?.length ?? 0, icon: Calendar, color: "text-violet-600", bg: "bg-violet-50/70 border border-violet-100/40", href: "/dienstplan" },
     { label: "Gerade im Café", value: openEntries?.length ?? 0, icon: UserCheck, color: "text-emerald-600", bg: "bg-emerald-50/70 border border-emerald-100/40", href: "/zeiterfassung" },
-    { label: "Offene Vertretungen", value: coverage.length, icon: LifeBuoy, color: "text-orange-600", bg: "bg-orange-50/70 border border-orange-100/40", href: "/vertretung" },
+    { label: "Offene Vertretungen", value: coverageCount, icon: LifeBuoy, color: "text-orange-600", bg: "bg-orange-50/70 border border-orange-100/40", href: "/vertretung" },
   ]
 
   return (
@@ -107,10 +112,10 @@ export default async function DashboardPage() {
             <p className="text-xs font-semibold text-slate-400">Aktuelle Zeit</p>
             <p className="stat-number text-2xl text-slate-950">{nowHHMM}</p>
           </div>
-          {(pendingAbsences?.length ?? 0) > 0 && (
+          {(pendingAbsenceCount ?? 0) > 0 && (
             <Link href="/abwesenheiten"
               className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-card transition hover:bg-brand-600">
-            <span>{pendingAbsences!.length} offene Urlaubsanträge</span>
+            <span>{pendingAbsenceCount} offene Urlaubsanträge</span>
             <ArrowRight className="w-3 h-3" />
           </Link>
           )}
@@ -169,14 +174,14 @@ export default async function DashboardPage() {
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
-            {coverage.length > 0 && (
+            {coverageCount > 0 && (
               <Link href="/vertretung"
                 className="surface-card group flex items-center gap-4 p-5 transition hover:-translate-y-0.5 hover:shadow-card-lg">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-100">
                   <LifeBuoy className="h-6 w-6 text-orange-600" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-950">{coverage.length} offene Vertretungsanfragen</p>
+                  <p className="text-sm font-bold text-slate-950">{coverageCount} offene Vertretungsanfragen</p>
                   <p className="mt-1 truncate text-xs font-medium text-slate-500">
                     {coverage.slice(0, 3).map(c => `${c.position} am ${formatDayLabel(c.date)} (${c.offers?.length ?? 0} Angebote)`).join(" · ")}
                   </p>
@@ -185,14 +190,14 @@ export default async function DashboardPage() {
               </Link>
             )}
 
-            {openShiftList.length > 0 && (
+            {unfilledShiftCount > 0 && (
               <Link href="/dienstplan"
                 className="surface-card group flex items-center gap-4 p-5 transition hover:-translate-y-0.5 hover:shadow-card-lg">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
                   <Calendar className="h-6 w-6 text-amber-600" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-950">{openShiftList.length} unbesetzte Schichten</p>
+                  <p className="text-sm font-bold text-slate-950">{unfilledShiftCount} unbesetzte Schichten</p>
                   <p className="mt-1 truncate text-xs font-medium text-slate-500">
                     {openShiftList.slice(0, 3).map(s => `${s.position} am ${formatDayLabel(s.date)}`).join(" · ")}
                   </p>

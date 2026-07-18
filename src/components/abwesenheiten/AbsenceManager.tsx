@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Plus, Check, X, LifeBuoy, CalendarDays, List, Paperclip } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import type { Employee } from "@/types"
 import { cn } from "@/lib/utils"
-import { triggerCoverageForAbsence } from "@/lib/coverage"
 import { notifyPush } from "@/lib/push-client"
 import { logAudit } from "@/lib/audit"
 import AbsenceTimeline from "./AbsenceTimeline"
@@ -41,58 +40,73 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
   const [filter, setFilter] = useState<"all" | "pending" | "approved">("all")
   const [view, setView] = useState<"kalender" | "liste">("kalender")
   const [notice, setNotice] = useState<string | null>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const openButtonRef = useRef<HTMLButtonElement>(null)
+  const employeeFieldRef = useRef<HTMLSelectElement>(null)
 
   // Live-Sync: neue Anträge erscheinen ohne Neuladen.
   useRealtimeRefresh(["absences"])
   useEffect(() => { setAbsences(initial) }, [initial])
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (showForm && !dialog.open) {
+      dialog.showModal()
+      requestAnimationFrame(() => employeeFieldRef.current?.focus())
+    } else if (!showForm && dialog.open) {
+      dialog.close()
+    }
+  }, [showForm])
 
   async function save() {
     setSaving(true)
     const supabase = createClient()
-    const { data } = await supabase.from("absences")
+    const { data, error } = await supabase.from("absences")
       .insert({ ...form, status: "pending", created_at: new Date().toISOString() })
       .select("*, employee:employees(*)").single()
-    if (data) {
-      const absence = data as Absence
-      setAbsences(prev => [absence, ...prev])
-      // Vertretungs-Engine: prüft kollidierende Schichten und sucht im Chat nach Ersatz.
-      try {
-        const gaps = await triggerCoverageForAbsence(supabase, {
-          id: absence.id,
-          employee_id: absence.employee_id,
-          type: absence.type,
-          start_date: absence.start_date,
-          end_date: absence.end_date,
-        })
-        if (gaps > 0) {
-          const emp = employees.find(e => e.id === absence.employee_id)
-          setNotice(
-            `${gaps} Schicht${gaps > 1 ? "en" : ""} von ${emp?.name ?? "diesem Mitarbeiter"} betroffen — ` +
-            `Ersatz-Anfrage wurde im Team-Chat gepostet. Die Leitung sieht Vorschläge unter „Vertretung".`
-          )
-          notifyPush({
-            audience: "all",
-            title: "🆘 Ersatz gesucht",
-            body: `${emp?.name ?? "Ein Mitarbeiter"} fällt aus — bitte Vertretung prüfen.`,
-            url: "/",
-            tag: "coverage",
-          })
-        }
-      } catch {
-        setNotice("Eintrag gespeichert. Automatische Ersatzsuche konnte nicht ausgeführt werden.")
-      }
+    if (error || !data) {
+      setNotice(error?.message ? `Abwesenheit konnte nicht gespeichert werden: ${error.message}` : "Abwesenheit konnte nicht gespeichert werden.")
+      setSaving(false)
+      return
     }
-    setSaving(false); setShowForm(false)
+
+    const absence = data as Absence
+    setAbsences(prev => [absence, ...prev])
+    try {
+      const response = await fetch("/api/coverage/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ absenceId: absence.id }),
+      })
+      const result = await response.json().catch(() => null) as { opened?: number; error?: string } | null
+      if (!response.ok) throw new Error(result?.error || "Automatische Ersatzsuche fehlgeschlagen")
+      const gaps = Number(result?.opened ?? 0)
+      if (gaps > 0) {
+        const emp = employees.find(e => e.id === absence.employee_id)
+        setNotice(`${gaps} Schicht${gaps > 1 ? "en" : ""} von ${emp?.name ?? "diesem Mitarbeiter"} betroffen. Die Ersatz-Anfrage steht im Team-Chat.`)
+      } else {
+        setNotice("Abwesenheit gespeichert. Es sind keine offenen Schichten betroffen.")
+      }
+    } catch {
+      setNotice("Abwesenheit gespeichert. Automatische Ersatzsuche konnte nicht ausgeführt werden.")
+    }
+    setSaving(false)
+    setShowForm(false)
     setForm({ employee_id: employees[0]?.id ?? "", type: "urlaub", start_date: "", end_date: "", note: "" })
   }
 
   async function updateStatus(id: string, status: "approved" | "rejected") {
     const supabase = createClient()
-    await supabase.from("absences").update({ status }).eq("id", id)
+    const { error } = await supabase.from("absences").update({ status }).eq("id", id)
+    if (error) {
+      setNotice(`Status konnte nicht gespeichert werden: ${error.message}`)
+      return
+    }
     const absence = absences.find(a => a.id === id)
     setAbsences(prev => prev.map(a => a.id === id ? { ...a, status } : a))
     if (absence) {
       const who = employees.find(e => e.id === absence.employee_id)?.name ?? "Mitarbeiter"
+      setNotice(`${who}: Antrag ${status === "approved" ? "genehmigt" : "abgelehnt"}.`)
       logAudit(status === "approved" ? "Abwesenheit genehmigt" : "Abwesenheit abgelehnt", `${who}: ${absence.type} ${absence.start_date}–${absence.end_date}`)
       notifyPush({
         employeeIds: [absence.employee_id],
@@ -127,41 +141,41 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
     <>
       {notice && (
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
-          <LifeBuoy className="w-5 h-5 text-brand-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-brand-900 leading-relaxed flex-1">{notice}</p>
-          <button onClick={() => setNotice(null)} className="text-brand-400 hover:text-brand-600">
-            <X className="w-4 h-4" />
+          <LifeBuoy aria-hidden="true" className="w-5 h-5 text-brand-600 flex-shrink-0 mt-0.5" />
+          <p role="status" aria-live="polite" className="text-sm text-brand-900 leading-relaxed flex-1">{notice}</p>
+          <button type="button" onClick={() => setNotice(null)} aria-label="Hinweis schließen" className="inline-flex size-11 -m-2 items-center justify-center rounded-lg text-brand-400 hover:text-brand-600">
+            <X aria-hidden="true" className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <dl className="grid grid-cols-3 gap-3 mb-4" aria-label="Abwesenheitsübersicht">
         {summary.map(s => (
           <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-3.5">
-            <p className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg text-base font-bold tabular-nums mb-2", s.classes)}>{s.value}</p>
-            <p className="text-xs text-gray-500">{s.label}</p>
+            <dd className={cn("inline-flex items-center justify-center w-8 h-8 rounded-lg text-base font-bold tabular-nums mb-2", s.classes)}>{s.value}</dd>
+            <dt className="text-xs text-gray-500">{s.label}</dt>
           </div>
         ))}
-      </div>
+      </dl>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-center gap-2 self-start">
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-            <button onClick={() => setView("kalender")}
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden" role="group" aria-label="Ansicht wählen">
+            <button type="button" onClick={() => setView("kalender")} aria-pressed={view === "kalender"}
               className={cn("flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition",
                 view === "kalender" ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50")}>
-              <CalendarDays className="w-3.5 h-3.5" /> Kalender
+              <CalendarDays aria-hidden="true" className="w-3.5 h-3.5" /> Kalender
             </button>
-            <button onClick={() => setView("liste")}
+            <button type="button" onClick={() => setView("liste")} aria-pressed={view === "liste"}
               className={cn("flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition",
                 view === "liste" ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50")}>
-              <List className="w-3.5 h-3.5" /> Liste
+              <List aria-hidden="true" className="w-3.5 h-3.5" /> Liste
             </button>
           </div>
           {view === "liste" && (
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1" role="group" aria-label="Abwesenheiten filtern">
               {(["all","pending","approved"] as const).map(f => (
-                <button key={f} onClick={() => setFilter(f)}
+                <button type="button" key={f} onClick={() => setFilter(f)} aria-pressed={filter === f}
                   className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition",
                     filter === f ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
                   {f === "all" ? "Alle" : f === "pending" ? "Ausstehend" : "Genehmigt"}
@@ -170,9 +184,9 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
             </div>
           )}
         </div>
-        <button onClick={() => setShowForm(true)}
+        <button ref={openButtonRef} type="button" onClick={() => setShowForm(true)} aria-haspopup="dialog" aria-controls="absence-form-dialog"
           className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
-          <Plus className="w-4 h-4" /> Abwesenheit melden
+          <Plus aria-hidden="true" className="w-4 h-4" /> Abwesenheit melden
         </button>
       </div>
 
@@ -192,7 +206,7 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
                 <th className="text-left px-4 py-3">Tage</th>
                 <th className="text-left px-4 py-3">Notiz</th>
                 <th className="text-left px-4 py-3">Status</th>
-                <th className="px-4 py-3"></th>
+                <th scope="col" className="px-4 py-3"><span className="sr-only">Aktionen</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -203,7 +217,7 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
                   <tr key={a.id} className="hover:bg-gray-50/50 transition">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                        <div aria-hidden="true" className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
                           style={{ backgroundColor: emp?.color ?? "#6366f1" }}>
                           {emp?.name?.split(" ").map(n => n[0]).join("").slice(0,2)}
                         </div>
@@ -219,9 +233,9 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
                     <td className="px-4 py-3 text-gray-600">{daysBetween(a.start_date, a.end_date)} Tage</td>
                     <td className="px-4 py-3 text-gray-400">
                       {a.attachment_path ? (
-                        <button onClick={() => viewAttachment(a.attachment_path!)}
+                        <button type="button" onClick={() => viewAttachment(a.attachment_path!)}
                           className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
-                          <Paperclip className="w-3 h-3" /> Krankschein
+                          <Paperclip aria-hidden="true" className="w-3 h-3" /> Krankschein öffnen
                         </button>
                       ) : (a.note ?? "—")}
                     </td>
@@ -236,13 +250,15 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
                     <td className="px-4 py-3">
                       {a.status === "pending" && (
                         <div className="flex gap-1">
-                          <button onClick={() => updateStatus(a.id, "approved")}
-                            className="p-1.5 rounded-lg hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 transition" title="Genehmigen">
-                            <Check className="w-4 h-4" />
+                          <button type="button" onClick={() => updateStatus(a.id, "approved")}
+                            aria-label={`Abwesenheit von ${emp?.name ?? "Mitarbeiter"} genehmigen`}
+                            className="inline-flex size-11 items-center justify-center rounded-lg hover:bg-emerald-50 text-gray-400 hover:text-emerald-700 transition">
+                            <Check aria-hidden="true" className="w-4 h-4" />
                           </button>
-                          <button onClick={() => updateStatus(a.id, "rejected")}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="Ablehnen">
-                            <X className="w-4 h-4" />
+                          <button type="button" onClick={() => updateStatus(a.id, "rejected")}
+                            aria-label={`Abwesenheit von ${emp?.name ?? "Mitarbeiter"} ablehnen`}
+                            className="inline-flex size-11 items-center justify-center rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-700 transition">
+                            <X aria-hidden="true" className="w-4 h-4" />
                           </button>
                         </div>
                       )}
@@ -256,62 +272,64 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
       </div>
       )}
 
-      {showForm && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-gray-200 rounded-2xl p-6 w-full max-w-md shadow-xl">
+      <dialog ref={dialogRef} id="absence-form-dialog" aria-labelledby="absence-form-title"
+        onCancel={event => { event.preventDefault(); setShowForm(false) }}
+        onClose={() => { setShowForm(false); openButtonRef.current?.focus() }}
+        onClick={event => { if (event.target === event.currentTarget) setShowForm(false) }}
+        className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl bg-transparent p-0 backdrop:bg-black/40 backdrop:backdrop-blur-sm">
+          <form onSubmit={event => { event.preventDefault(); void save() }} aria-busy={saving} className="bg-white border border-gray-200 rounded-2xl p-6 w-full shadow-xl">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="font-semibold text-gray-900">Abwesenheit melden</h3>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+              <h2 id="absence-form-title" className="font-semibold text-gray-900">Abwesenheit melden</h2>
+              <button type="button" onClick={() => setShowForm(false)} aria-label="Dialog schließen" className="inline-flex size-11 -m-2 items-center justify-center rounded-lg text-gray-500 hover:text-gray-700"><X aria-hidden="true" className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block font-medium">Mitarbeiter</label>
-                <select value={form.employee_id} onChange={e => setForm(f => ({ ...f, employee_id: e.target.value }))}
+                <label htmlFor="absence-employee" className="text-xs text-gray-500 mb-1 block font-medium">Mitarbeiter</label>
+                <select ref={employeeFieldRef} id="absence-employee" name="employee_id" value={form.employee_id} onChange={e => setForm(f => ({ ...f, employee_id: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
                   {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block font-medium">Typ</label>
+              <fieldset>
+                <legend className="text-xs text-gray-500 mb-1 block font-medium">Typ</legend>
                 <div className="grid grid-cols-2 gap-2">
                   {TYPES.map(t => (
-                    <button key={t.value} onClick={() => setForm(f => ({ ...f, type: t.value }))}
+                    <button type="button" key={t.value} onClick={() => setForm(f => ({ ...f, type: t.value }))} aria-pressed={form.type === t.value}
                       className={cn("px-3 py-2 rounded-lg border text-xs font-medium transition",
                         form.type === t.value ? t.color : "border-gray-200 text-gray-500 hover:bg-gray-50")}>
                       {t.label}
                     </button>
                   ))}
                 </div>
-              </div>
+              </fieldset>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block font-medium">Von</label>
-                  <input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
+                  <label htmlFor="absence-start-date" className="text-xs text-gray-500 mb-1 block font-medium">Von</label>
+                  <input id="absence-start-date" name="start_date" type="date" required value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block font-medium">Bis</label>
-                  <input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
+                  <label htmlFor="absence-end-date" className="text-xs text-gray-500 mb-1 block font-medium">Bis</label>
+                  <input id="absence-end-date" name="end_date" type="date" required min={form.start_date || undefined} value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block font-medium">Notiz</label>
-                <input type="text" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+                <label htmlFor="absence-note" className="text-xs text-gray-500 mb-1 block font-medium">Notiz</label>
+                <input id="absence-note" name="note" type="text" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
                   placeholder="Optional" className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
               </div>
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={() => setShowForm(false)}
+              <button type="button" onClick={() => setShowForm(false)}
                 className="flex-1 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition">Abbrechen</button>
-              <button onClick={save} disabled={saving || !form.start_date || !form.end_date}
+              <button type="submit" disabled={saving || !form.start_date || !form.end_date} aria-busy={saving}
                 className="flex-1 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition disabled:opacity-50">
                 {saving ? "Speichern…" : "Einreichen"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </form>
+      </dialog>
     </>
   )
 }

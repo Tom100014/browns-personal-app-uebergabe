@@ -5,7 +5,6 @@ import { LifeBuoy, Check, Sparkles, Clock, CalendarDays, X, UserCheck } from "lu
 import { createClient } from "@/lib/supabase"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import { formatDayLabel } from "@/lib/coverage"
-import { cn } from "@/lib/utils"
 import type { Employee, CoverageRequest } from "@/types"
 
 interface Props {
@@ -88,7 +87,6 @@ export default function CoverageBoard({ requests: initial, employees }: Props) {
               const orig = empById(req.original_employee_id)
               const suggested = empById(req.suggested_employee_id)
               const offers = req.offers ?? []
-              const offerIds = new Set(offers.map(o => o.employee_id))
               return (
                 <div key={req.id} className="bg-white border border-orange-200 rounded-xl p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">

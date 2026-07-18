@@ -9,7 +9,7 @@ export default async function PortalChecklisten() {
   const supabase = await createClient()
   const [{ data: checklists }, { data: employees }] = await Promise.all([
     supabase.from("checklists").select("*, items:checklist_items(*)").order("created_at", { ascending: false }),
-    supabase.from("employees").select("id,name,color,position,role").order("name"),
+    supabase.from("employee_directory").select("id,name,color,position,role").order("name"),
   ])
 
   return (

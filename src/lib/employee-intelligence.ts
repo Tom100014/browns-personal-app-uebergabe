@@ -280,9 +280,7 @@ export function formatEmployeeIntelligenceForAgent(intelligence: EmployeeIntelli
     const pairs = row.pairHints.length
       ? ` | Teamfit: ${row.pairHints.map(p => `${p.name} (${p.label}, ${p.score}x)`).join(", ")}`
       : ""
-    const tags = row.tags.length ? ` | Tags: ${row.tags.join(", ")}` : ""
-    const notes = row.notes.length ? `\n  Wissensnotizen: ${row.notes.join(" / ")}` : ""
-    return `- ${row.name} (${row.position}, ${row.employmentType}): Ist ${row.workedHours} h, Plan ${row.plannedHours} h, Abwesenheit ${row.absenceDays} T (${row.sickDays} krank), offene Anträge ${row.pendingAbsences}, Zeitprüfung ${row.shiftsWithoutEntry}, Wissen +${row.positiveSignals}/!${row.riskSignals}. Empfehlung: ${row.recommendation}${pairs}${tags}${notes}`
+    return `- ${row.name} (${row.position}, ${row.employmentType}): Ist ${row.workedHours} h, Plan ${row.plannedHours} h, offene Zeitnachweise ${row.shiftsWithoutEntry}, Vertretungsvorgänge ${row.coverageCount}.${pairs}`
   })
   return rows.join("\n") || "(keine Mitarbeiterdaten)"
 }

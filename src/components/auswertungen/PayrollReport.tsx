@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { Download, TrendingUp, Clock, Euro, Percent, Save, Check, Plus, Trash2, FileSpreadsheet, ChevronDown } from "lucide-react"
 import { entryHours, shiftHours, formatHours, formatEuro } from "@/lib/hours"
 import { createClient } from "@/lib/supabase"
@@ -12,6 +12,10 @@ import { de } from "date-fns/locale"
 type Entry = { employee_id: string; date: string; clock_in: string; clock_out?: string | null; break_minutes?: number | null }
 type ShiftRow = { employee_id: string | null; date: string; start_time: string; end_time: string }
 type AbsenceRow = { employee_id: string; type: string; start_date: string; end_date: string; status: string }
+type Extra = { id: string; employee_id: string; type: string; label: string | null; amount: number }
+type DatevConfig = { berater: string; mandant: string; la_stunden: string; la_zulage: string; la_spesen: string }
+
+const DATEV_DEFAULT: DatevConfig = { berater: "", mandant: "", la_stunden: "200", la_zulage: "210", la_spesen: "220" }
 
 interface Props {
   employees: Employee[]
@@ -43,6 +47,7 @@ function absenceDaysInMonth(a: AbsenceRow, month: string): number {
 const num = (n: number) => n.toFixed(1).replace(".", ",")
 
 export default function PayrollReport({ employees, entries, shifts, absences }: Props) {
+  const supabase = useMemo(() => createClient(), [])
   const months = useMemo(() => lastMonths(12), [])
   const [month, setMonth] = useState(months[0].value)
   const [revenue, setRevenue] = useState<number>(0)
@@ -53,7 +58,6 @@ export default function PayrollReport({ employees, entries, shifts, absences }: 
   // Load the stored revenue for the selected month.
   useEffect(() => {
     let active = true
-    const supabase = createClient()
     supabase.from("revenue").select("amount").eq("month", month).maybeSingle().then(({ data }) => {
       if (!active) return
       const amt = data?.amount ? Number(data.amount) : 0
@@ -61,72 +65,107 @@ export default function PayrollReport({ employees, entries, shifts, absences }: 
       setRevInput(amt ? String(amt).replace(".", ",") : "")
     })
     return () => { active = false }
-  }, [month])
+  }, [month, supabase])
 
   async function saveRevenue() {
     setSavingRev(true)
     const amount = revInput ? Number(revInput.replace(",", ".")) : 0
-    const supabase = createClient()
     await supabase.from("revenue").upsert({ month, amount, updated_at: new Date().toISOString() })
     setRevenue(amount)
     setSavingRev(false); setSavedRev(true); setTimeout(() => setSavedRev(false), 2000)
   }
 
   // Zulagen & Spesen (extras) für den Monat
-  type Extra = { id: string; employee_id: string; type: string; label: string | null; amount: number }
   const [extras, setExtras] = useState<Extra[]>([])
   const [exForm, setExForm] = useState({ employee_id: "", type: "zulage", label: "", amount: "" })
-  function loadExtras(m: string) {
-    createClient().from("extras").select("id,employee_id,type,label,amount").eq("month", m)
-      .then(({ data }) => setExtras((data ?? []) as Extra[]))
-  }
-  useEffect(() => { loadExtras(month) }, [month])
+  const loadExtras = useCallback(async (selectedMonth: string) => {
+    const { data } = await supabase.from("extras").select("id,employee_id,type,label,amount").eq("month", selectedMonth)
+    return (data ?? []) as Extra[]
+  }, [supabase])
+  useEffect(() => {
+    let active = true
+    void loadExtras(month).then(data => { if (active) setExtras(data) })
+    return () => { active = false }
+  }, [loadExtras, month])
 
   async function addExtra() {
     if (!exForm.employee_id || !exForm.amount) return
-    const supabase = createClient()
     await supabase.from("extras").insert({
       employee_id: exForm.employee_id, month, type: exForm.type,
       label: exForm.label || null, amount: Number(exForm.amount.replace(",", ".")),
     })
     setExForm({ employee_id: "", type: "zulage", label: "", amount: "" })
-    loadExtras(month)
+    setExtras(await loadExtras(month))
   }
   async function deleteExtra(id: string) {
-    await createClient().from("extras").delete().eq("id", id)
+    await supabase.from("extras").delete().eq("id", id)
     setExtras(prev => prev.filter(e => e.id !== id))
   }
-  const extrasFor = (empId: string) => extras.filter(e => e.employee_id === empId).reduce((s, e) => s + Number(e.amount), 0)
-  const extrasForType = (empId: string, type: string) => extras.filter(e => e.employee_id === empId && e.type === type).reduce((s, e) => s + Number(e.amount), 0)
+  const extraIndexes = useMemo(() => {
+    const byEmployee = new Map<string, number>()
+    const byEmployeeAndType = new Map<string, number>()
+    for (const extra of extras) {
+      const amount = Number(extra.amount)
+      byEmployee.set(extra.employee_id, (byEmployee.get(extra.employee_id) ?? 0) + amount)
+      const key = `${extra.employee_id}:${extra.type}`
+      byEmployeeAndType.set(key, (byEmployeeAndType.get(key) ?? 0) + amount)
+    }
+    return { byEmployee, byEmployeeAndType }
+  }, [extras])
+  const extrasFor = (empId: string) => extraIndexes.byEmployee.get(empId) ?? 0
+  const extrasForType = (empId: string, type: string) => extraIndexes.byEmployeeAndType.get(`${empId}:${type}`) ?? 0
   const extrasTotal = extras.reduce((s, e) => s + Number(e.amount), 0)
 
   // DATEV-Lohnimport (Bewegungsdaten) — Konfiguration in settings 'datev_config'
-  type DatevConfig = { berater: string; mandant: string; la_stunden: string; la_zulage: string; la_spesen: string }
-  const DATEV_DEFAULT: DatevConfig = { berater: "", mandant: "", la_stunden: "200", la_zulage: "210", la_spesen: "220" }
   const [datev, setDatev] = useState<DatevConfig>(DATEV_DEFAULT)
   const [datevOpen, setDatevOpen] = useState(false)
   const [savingDatev, setSavingDatev] = useState(false)
   const [savedDatev, setSavedDatev] = useState(false)
   useEffect(() => {
-    createClient().from("settings").select("value").eq("key", "datev_config").maybeSingle().then(({ data }) => {
+    supabase.from("settings").select("value").eq("key", "datev_config").maybeSingle().then(({ data }) => {
       if (!data?.value) return
       try { setDatev({ ...DATEV_DEFAULT, ...JSON.parse(data.value) }) } catch { /* ignore */ }
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [supabase])
   async function saveDatevConfig() {
     setSavingDatev(true)
-    await createClient().from("settings").upsert({ key: "datev_config", value: JSON.stringify(datev) })
+    await supabase.from("settings").upsert({ key: "datev_config", value: JSON.stringify(datev) })
     setSavingDatev(false); setSavedDatev(true); setTimeout(() => setSavedDatev(false), 2000)
   }
 
+  const hoursIndexes = useMemo(() => {
+    const actual = new Map<string, number>()
+    const planned = new Map<string, number>()
+    for (const entry of entries) {
+      if (!entry.clock_out) continue
+      const key = `${entry.employee_id}:${entry.date.slice(0, 7)}`
+      actual.set(key, (actual.get(key) ?? 0) + entryHours(entry))
+    }
+    for (const shift of shifts) {
+      if (!shift.employee_id) continue
+      const key = `${shift.employee_id}:${shift.date.slice(0, 7)}`
+      planned.set(key, (planned.get(key) ?? 0) + shiftHours(shift))
+    }
+    return { actual, planned }
+  }, [entries, shifts])
+  const absencesByEmployee = useMemo(() => {
+    const index = new Map<string, AbsenceRow[]>()
+    for (const absence of absences) {
+      const rows = index.get(absence.employee_id) ?? []
+      rows.push(absence)
+      index.set(absence.employee_id, rows)
+    }
+    return index
+  }, [absences])
+
   const rows = useMemo(() => employees.map(emp => {
-    const istHours = entries.filter(e => e.employee_id === emp.id && e.date.startsWith(month) && e.clock_out).reduce((s, e) => s + entryHours(e), 0)
-    const planHours = shifts.filter(s => s.employee_id === emp.id && s.date.startsWith(month)).reduce((s, sh) => s + shiftHours(sh), 0)
-    const absDays = absences.filter(a => a.employee_id === emp.id && a.status !== "rejected").reduce((s, a) => s + absenceDaysInMonth(a, month), 0)
+    const key = `${emp.id}:${month}`
+    const istHours = hoursIndexes.actual.get(key) ?? 0
+    const planHours = hoursIndexes.planned.get(key) ?? 0
+    const absDays = (absencesByEmployee.get(emp.id) ?? []).filter(a => a.status !== "rejected").reduce((sum, absence) => sum + absenceDaysInMonth(absence, month), 0)
     const wage = emp.hourly_wage ?? 0
     return { emp, istHours, planHours, diff: istHours - planHours, absDays, cost: istHours * wage, wage }
-  }), [employees, entries, shifts, absences, month])
+  }), [absencesByEmployee, employees, hoursIndexes, month])
 
   const totals = useMemo(() => rows.reduce((t, r) => ({
     ist: t.ist + r.istHours, plan: t.plan + r.planHours, abs: t.abs + r.absDays, cost: t.cost + r.cost,
@@ -139,11 +178,11 @@ export default function PayrollReport({ employees, entries, shifts, absences }: 
     let cost = 0
     for (const emp of employees) {
       const wage = emp.hourly_wage ?? 0
-      const h = entries.filter(e => e.employee_id === emp.id && e.date.startsWith(m.value) && e.clock_out).reduce((s, e) => s + entryHours(e), 0)
+      const h = hoursIndexes.actual.get(`${emp.id}:${m.value}`) ?? 0
       cost += h * wage
     }
     return { label: m.label.split(" ")[0].slice(0, 3), cost }
-  }), [employees, entries, months])
+  }), [employees, hoursIndexes, months])
   const trendMax = Math.max(...trend.map(t => t.cost), 1)
 
   function exportCsv() {

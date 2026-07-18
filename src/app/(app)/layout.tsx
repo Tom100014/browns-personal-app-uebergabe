@@ -4,13 +4,14 @@ import { getCurrentStaff } from "@/lib/staff"
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const staff = await getCurrentStaff()
+  if (!staff) redirect("/login")
   // Regular employees use the dedicated employee portal, not the admin area.
-  if (staff && !staff.isManager) redirect("/portal")
+  if (!staff.isManager) redirect("/portal")
 
   return (
     <div className="lg:flex lg:h-screen lg:overflow-hidden bg-background min-h-screen">
       <Sidebar />
-      <main className="flex-1 lg:overflow-y-auto pt-20 lg:pt-0">
+      <main id="main-content" tabIndex={-1} className="flex-1 lg:overflow-y-auto pt-20 lg:pt-0 focus:outline-none">
         {/* Inhaltsbreite auf sehr großen Monitoren begrenzen */}
         <div className="max-w-[1600px] mx-auto w-full">
           {children}

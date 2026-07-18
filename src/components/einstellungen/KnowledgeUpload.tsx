@@ -142,20 +142,6 @@ export default function KnowledgeUpload() {
     setBusy(true)
     const supabase = createClient()
     const file = fileRef.current?.files?.[0]
-    let file_path: string | null = null
-    let kind = "notiz"
-
-    if (file) {
-      const safe = file.name.replace(/[^\w.\-]+/g, "_")
-      file_path = `${Date.now()}-${safe}`
-      const { error } = await supabase.storage.from("knowledge").upload(file_path, file)
-      if (error) {
-        setBusy(false)
-        alert("Upload fehlgeschlagen: " + error.message)
-        return
-      }
-      kind = file.type.startsWith("image/") ? "bild" : "datei"
-    }
 
     const encodedNote = encodeKnowledgeNote(note, {
       category,
@@ -165,24 +151,39 @@ export default function KnowledgeUpload() {
       employeeNames: selectedNames,
       sourceDate,
       scope: employeeIds.length > 0 ? "employee" : "team",
+      trust: "manager_verified",
     })
 
-    const { data, error } = await supabase
-      .from("knowledge_docs")
-      .insert({ title: title.trim(), note: encodedNote, file_path, kind })
-      .select()
-      .single()
+    let data: unknown = null
+    let saveError = ""
+    if (file) {
+      const payload = new FormData()
+      payload.set("scope", "knowledge")
+      payload.set("title", title.trim())
+      payload.set("note", encodedNote)
+      payload.set("file", file)
+      const response = await fetch("/api/agent/upload", { method: "POST", body: payload })
+      const result = await response.json().catch(() => ({}))
+      data = result.record ?? null
+      saveError = response.ok ? "" : (result.error || "Upload fehlgeschlagen")
+    } else {
+      const result = await supabase.from("knowledge_docs")
+        .insert({ title: title.trim(), note: encodedNote, file_path: null, kind: "notiz" })
+        .select().single()
+      data = result.data
+      saveError = result.error?.message ?? ""
+    }
 
-    if (error) {
+    if (saveError) {
       setBusy(false)
-      alert("Speichern fehlgeschlagen: " + error.message)
+      alert("Speichern fehlgeschlagen: " + saveError)
       return
     }
 
     if (data) {
       const saved = data as Doc
       setDocs(prev => [saved, ...prev])
-      if (file_path && (kind === "bild" || /\.(txt|csv|md|xlsx)$/i.test(file_path))) analyze(saved.id)
+      if (saved.file_path && (saved.kind === "bild" || /\.(txt|csv|tsv|md|xlsx)$/i.test(saved.file_path))) analyze(saved.id)
     }
 
     setTitle("")
@@ -201,7 +202,7 @@ export default function KnowledgeUpload() {
     setLearning(true)
     setLearnText(null)
     try {
-      const res = await fetch("/api/agent/learn")
+      const res = await fetch("/api/agent/learn", { method: "POST" })
       const data = await res.json()
       setLearnText(data.insight || data.error || "Keine Analyse erhalten.")
       load()
@@ -226,7 +227,7 @@ export default function KnowledgeUpload() {
   }
 
   return (
-    <div className="mt-5 border-t border-gray-100 pt-5">
+    <div className="mt-5 min-w-0 max-w-full border-t border-gray-100 pt-5">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -272,7 +273,7 @@ export default function KnowledgeUpload() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-card">
+      <div className="min-w-0 max-w-full rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-card">
         <div className="grid gap-3 lg:grid-cols-[1fr_180px_160px]">
           <input
             value={title}
@@ -355,7 +356,8 @@ export default function KnowledgeUpload() {
           <input
             ref={fileRef}
             type="file"
-            className="text-xs text-gray-600 file:mr-2 file:rounded-xl file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-xs file:font-bold file:text-brand-700"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx,.txt,.md,.csv,.tsv"
+            className="min-w-0 max-w-full text-xs text-gray-600 file:mr-2 file:rounded-xl file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-xs file:font-bold file:text-brand-700"
           />
           <button
             type="button"
@@ -367,7 +369,7 @@ export default function KnowledgeUpload() {
             Speichern
           </button>
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-gray-400">Alle Dateitypen können gespeichert werden. Bilder, Text, CSV und Excel (.xlsx) werden zusätzlich automatisch für Browns Agent und Team-Chart ausgelesen.</p>
+        <p className="mt-2 text-[11px] leading-relaxed text-gray-400">PDF, Bild, DOCX, XLSX und Textdateien bis 4 MB. Bilder, Text, CSV und Excel werden nach Freigabe zusätzlich ausgelesen.</p>
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -397,8 +399,8 @@ export default function KnowledgeUpload() {
           const metaLine = knowledgeMetaLine(meta)
           const isRisk = meta.signal && ["problem", "krankheit", "fehler"].includes(meta.signal)
           return (
-            <div key={doc.id} className="rounded-2xl border border-gray-100 bg-white px-3 py-3 shadow-card">
-              <div className="flex items-start gap-2.5">
+            <div key={doc.id} className="min-w-0 max-w-full rounded-2xl border border-gray-100 bg-white px-3 py-3 shadow-card">
+              <div className="flex min-w-0 items-start gap-2.5">
                 <div className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${isRisk ? "bg-red-50 text-red-600" : "bg-brand-50 text-brand-600"}`}>
                   {doc.kind === "bild" ? <ImageIcon className="h-4 w-4" /> : doc.kind === "datei" ? <FileText className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                 </div>
@@ -412,8 +414,8 @@ export default function KnowledgeUpload() {
                     </span>
                     <span className="rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-500">{fileKindLabel(doc.kind)}</span>
                   </div>
-                  {metaLine && <p className="mt-1 text-xs text-gray-500">{metaLine}</p>}
-                  {doc.parsed.body && <p className="mt-1 text-xs leading-relaxed text-gray-600">{doc.parsed.body}</p>}
+                  {metaLine && <p className="mt-1 break-words text-xs text-gray-500">{metaLine}</p>}
+                  {doc.parsed.body && <p className="mt-1 break-words text-xs leading-relaxed text-gray-600">{doc.parsed.body}</p>}
                   {doc.extracted && (
                     <p className="mt-2 line-clamp-3 rounded-xl bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-500 whitespace-pre-wrap">{doc.extracted}</p>
                   )}
