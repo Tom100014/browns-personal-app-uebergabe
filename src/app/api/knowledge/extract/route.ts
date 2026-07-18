@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const { text, error } = await askLLMVision(VISION_SYSTEM, `Analysiere dieses Bild ("${doc.title}").`, signed.signedUrl, 700)
     if (error) return jsonNoStore({ error }, { status: 200 })
     extracted = (text ?? "").trim()
-  } else if (/\.(txt|csv|md)$/i.test(doc.file_path)) {
+  } else if (/\.(txt|csv|tsv|md)$/i.test(doc.file_path)) {
     try {
       const res = await fetch(signed.signedUrl)
       const raw = await res.text()

@@ -5,11 +5,24 @@ import { addMonths, endOfMonth, format, startOfMonth, subMonths } from "date-fns
 
 type AbsenceRow = { employee_id: string; type: string; start_date: string; end_date: string; status: string }
 
-export default async function DienstplanPage() {
+type DienstplanPageProps = {
+  searchParams: Promise<{ date?: string | string[] }>
+}
+
+function validDateParam(value: string | string[] | undefined) {
+  const candidate = Array.isArray(value) ? value[0] : value
+  if (!candidate || !/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return undefined
+  const parsed = new Date(`${candidate}T12:00:00`)
+  return Number.isNaN(parsed.getTime()) || format(parsed, "yyyy-MM-dd") !== candidate ? undefined : candidate
+}
+
+export default async function DienstplanPage({ searchParams }: DienstplanPageProps) {
+  const params = await searchParams
+  const initialDate = validDateParam(params.date)
   const supabase = await createClient()
-  const now = new Date()
-  const rangeStart = format(startOfMonth(subMonths(now, 12)), "yyyy-MM-dd")
-  const rangeEnd = format(endOfMonth(addMonths(now, 18)), "yyyy-MM-dd")
+  const rangeAnchor = initialDate ? new Date(`${initialDate}T12:00:00`) : new Date()
+  const rangeStart = format(startOfMonth(subMonths(rangeAnchor, 12)), "yyyy-MM-dd")
+  const rangeEnd = format(endOfMonth(addMonths(rangeAnchor, 18)), "yyyy-MM-dd")
 
   const [{ data: shifts }, { data: employees }, { data: priv }, { data: settingsRows }, { data: absences }] = await Promise.all([
     supabase
@@ -47,11 +60,13 @@ export default async function DienstplanPage() {
         <p className="text-gray-500 text-sm mt-0.5">Wochenansicht · Schichten planen und verwalten</p>
       </div>
       <ShiftCalendar
+        key={initialDate ?? "today"}
         shifts={normalizedShifts}
         employees={employeesMerged as Employee[]}
         minStaffing={minStaffing}
         absences={(absences ?? []) as AbsenceRow[]}
         openingHours={openingHours}
+        initialDate={initialDate}
       />
     </div>
   )

@@ -1,11 +1,11 @@
 "use client"
 
 import { useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { AlertTriangle, CheckCircle2, Database, Download, FileSpreadsheet, Loader2, Upload, X } from "lucide-react"
-import { createClient } from "@/lib/supabase"
-import { logAudit } from "@/lib/audit"
 import { encodeKnowledgeNote } from "@/lib/knowledge"
 import { guessWeekStart, parseShiftImport, type ImportMatrix } from "@/lib/shift-import"
+import { canCreatePlanningProfileForRow, planningNameKey, safeCsvCell } from "@/lib/planning-profile"
 import type { Employee, Shift } from "@/types"
 import { cn } from "@/lib/utils"
 
@@ -25,8 +25,18 @@ type ParseResponse = {
   error?: string
 }
 
+type ShiftImportResponse = {
+  shifts?: Shift[]
+  createdCount?: number
+  duplicateCount?: number
+  reused?: boolean
+  error?: string
+}
+
 export default function ShiftImportDialog({ employees, shifts, onClose, onImported }: Props) {
+  const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  const importIdRef = useRef("")
   const [file, setFile] = useState<File | null>(null)
   const [matrix, setMatrix] = useState<ImportMatrix>([])
   const [sheetName, setSheetName] = useState("")
@@ -40,14 +50,24 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
   const [success, setSuccess] = useState<number | null>(null)
+  const [createdProfiles, setCreatedProfiles] = useState(0)
 
   const parsed = useMemo(
     () => parseShiftImport(matrix, employees, shifts, overrides, weekStart),
     [employees, matrix, overrides, shifts, weekStart],
   )
   const validRows = parsed.rows.filter(row => row.errors.length === 0 && !row.duplicate && row.employeeId)
+  const employeeNames = employees.map(employee => employee.name)
+  const planningRows = parsed.rows.filter(row => canCreatePlanningProfileForRow(row, employeeNames))
+  const profileMap = new Map<string, { name: string; position: string }>()
+  planningRows.forEach(row => {
+    const key = planningNameKey(row.employeeName)
+    if (!profileMap.has(key)) profileMap.set(key, { name: row.employeeName.trim(), position: row.position })
+  })
+  const planningProfiles = Array.from(profileMap.values())
+  const importableCount = validRows.length + planningRows.length
   const duplicateCount = parsed.rows.filter(row => row.duplicate).length
-  const errorCount = parsed.rows.filter(row => row.errors.length > 0).length
+  const errorCount = parsed.rows.filter(row => row.errors.length > 0 && !canCreatePlanningProfileForRow(row, employeeNames)).length
 
   async function chooseFile(selected: File | null, sheetIndex = 0) {
     if (!selected) return
@@ -56,10 +76,12 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
     setMatrix([])
     setOverrides({})
     setSelectedSheet(sheetIndex)
+    if (newFile || sheetIndex !== selectedSheet) importIdRef.current = crypto.randomUUID()
     if (newFile) setWeekStart(guessWeekStart(selected.name))
     setError(null)
     setWarning(null)
     setSuccess(null)
+    setCreatedProfiles(0)
     setParsing(true)
     try {
       const form = new FormData()
@@ -83,7 +105,7 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
     const csv = [
       ["Datum", "Mitarbeiter", "Von", "Bis", "Position", "Notiz"],
       ["2026-07-20", example, "08:00", "16:00", employees[0]?.position ?? "Service", "Frühschicht"],
-    ].map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(";")).join("\r\n")
+    ].map(row => row.map(safeCsvCell).join(";")).join("\r\n")
     const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }))
     const anchor = document.createElement("a")
     anchor.href = url
@@ -92,16 +114,16 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
     URL.revokeObjectURL(url)
   }
 
-  async function archiveSource(importedCount: number): Promise<boolean> {
+  async function archiveSource(imported: Shift[]): Promise<boolean> {
     if (!file) return true
-    const names = [...new Set(validRows.map(row => row.employeeName))]
+    const names = [...new Set(imported.map(shift => shift.employee?.name).filter(Boolean))] as string[]
     const note = encodeKnowledgeNote(
-      `${importedCount} Schichten aus ${file.name} in den Dienstplan übernommen. Originaldatei als Nachweis archiviert.`,
+      `${imported.length} Schichten aus ${file.name} in den Dienstplan übernommen. Originaldatei als Nachweis archiviert.`,
       {
         category: "dienstplan",
         signal: "neutral",
         tags: ["dienstplan", "import", file.name.split(".").pop()?.toLowerCase() ?? "datei"],
-        employeeIds: [...new Set(validRows.map(row => row.employeeId).filter(Boolean))] as string[],
+        employeeIds: [...new Set(imported.map(shift => shift.employee_id).filter(Boolean))] as string[],
         employeeNames: names,
         sourceDate: new Date().toISOString().slice(0, 10),
         scope: "team",
@@ -117,37 +139,42 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
   }
 
   async function importRows() {
-    if (!file || validRows.length === 0) return
+    if (!file || importableCount === 0) return
     setSaving(true)
     setError(null)
     setWarning(null)
-    const supabase = createClient()
-    const payload = validRows.map(row => ({
-      employee_id: row.employeeId!,
+    const rows = [...validRows, ...planningRows].map(row => ({
+      employeeId: row.employeeId,
+      employeeName: row.employeeName,
       date: row.date,
-      start_time: row.start,
-      end_time: row.end,
+      start: row.start,
+      end: row.end,
       position: row.position,
-      note: row.note || null,
-      status: "scheduled" as const,
+      note: row.note,
     }))
-    const { data, error: insertError } = await supabase
-      .from("shifts")
-      .insert(payload)
-      .select("*, employee:employees(*)")
-
-    if (insertError) {
-      setError(`Import fehlgeschlagen: ${insertError.message}`)
+    if (!importIdRef.current) importIdRef.current = crypto.randomUUID()
+    const response = await fetch("/api/shifts/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ importId: importIdRef.current, rows }),
+    })
+    const result = await response.json().catch(() => ({})) as ShiftImportResponse
+    if (!response.ok || result.error) {
+      setError(result.error || "Der Dienstplanimport konnte nicht vollständig gespeichert werden.")
       setSaving(false)
       return
     }
 
-    const imported = (data ?? []) as Shift[]
+    const imported = result.shifts ?? []
     onImported(imported)
-    const archived = await archiveSource(imported.length)
-    if (!archived) setWarning("Die Schichten wurden übernommen, aber die Originaldatei konnte nicht in der Wissensdatenbank archiviert werden.")
-    await logAudit("Dienstplan importiert", `${file.name}: ${imported.length} Schichten`)
+    const archived = await archiveSource(imported)
+    const warnings: string[] = []
+    if ((result.duplicateCount ?? 0) > 0) warnings.push(`${result.duplicateCount} inzwischen vorhandene Schichten wurden übersprungen.`)
+    if (!archived) warnings.push("Die Schichten wurden übernommen, aber die Originaldatei konnte nicht in der Wissensdatenbank archiviert werden.")
+    setWarning(warnings.join(" ") || null)
+    setCreatedProfiles(result.createdCount ?? 0)
     setSuccess(imported.length)
+    router.refresh()
     setSaving(false)
   }
 
@@ -219,18 +246,24 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
           {success != null && (
             <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">
               <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600" />
-              <div><p className="text-sm font-black">{success} Schichten übernommen</p><p className="text-xs">Der Dienstplan ist aktualisiert und die Originaldatei wurde in der Wissensdatenbank dokumentiert.</p></div>
+              <div><p className="text-sm font-black">{success} Schichten übernommen</p><p className="text-xs">Der Dienstplan ist aktualisiert{createdProfiles > 0 ? `; ${createdProfiles} neue Planungsprofile wurden ohne Login angelegt` : ""}. Die Originaldatei wurde in der Wissensdatenbank dokumentiert.</p></div>
             </div>
           )}
 
-          {matrix.length > 0 && !success && (
+          {matrix.length > 0 && success == null && (
             <>
               <div className="mt-5 flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">{validRows.length} bereit</span>
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">{importableCount} bereit</span>
+                {planningProfiles.length > 0 && <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">{planningProfiles.length} neue Planungsprofile</span>}
                 <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">{duplicateCount} doppelt, wird übersprungen</span>
                 <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">{errorCount} zu prüfen</span>
                 {sheetName && <span className="ml-auto text-xs text-gray-400">Tabelle: {sheetName}</span>}
               </div>
+              {planningProfiles.length > 0 && (
+                <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-relaxed text-sky-900">
+                  <strong>Neue Namen erkannt:</strong> Beim Import werden Planungsprofile ohne App-Zugang angelegt. Fehlende Stammdaten und Zugänge erscheinen danach als Aufgabe im Dashboard.
+                </div>
+              )}
               {truncated && <p className="mt-2 text-xs font-semibold text-amber-700">Die Vorschau wurde auf 1.000 Zeilen und 40 Spalten begrenzt.</p>}
               {parsed.error ? (
                 <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-800">{parsed.error}</div>
@@ -242,7 +275,7 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {parsed.rows.slice(0, 150).map(row => (
-                        <tr key={row.sourceRow} className={cn(row.errors.length > 0 && "bg-red-50/60", row.duplicate && "bg-amber-50/60")}>
+                        <tr key={row.sourceRow} className={cn(row.errors.length > 0 && !canCreatePlanningProfileForRow(row, employeeNames) && "bg-red-50/60", canCreatePlanningProfileForRow(row, employeeNames) && "bg-sky-50/60", row.duplicate && "bg-amber-50/60")}>
                           <td className="px-3 py-2 text-gray-400">{row.sourceRow}</td>
                           <td className="px-3 py-2">
                             <select
@@ -250,7 +283,7 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
                               onChange={event => setOverrides(current => ({ ...current, [row.sourceRow]: event.target.value }))}
                               className={cn("w-full min-w-44 rounded-lg border px-2 py-1.5 outline-none", row.employeeId ? "border-gray-200 bg-white" : "border-red-300 bg-red-50")}
                             >
-                              <option value="">Bitte zuordnen</option>
+                              <option value="">{canCreatePlanningProfileForRow(row, employeeNames) ? `Neues Profil: ${row.employeeName}` : "Bitte zuordnen"}</option>
                               {employees.map(employee => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
                             </select>
                           </td>
@@ -259,6 +292,7 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
                           <td className="px-3 py-2 text-gray-700">{row.position}</td>
                           <td className="px-3 py-2">
                             {row.duplicate ? <span className="font-bold text-amber-700">Bereits vorhanden</span>
+                              : canCreatePlanningProfileForRow(row, employeeNames) ? <span className="font-bold text-sky-700">Neues Planungsprofil</span>
                               : row.errors.length > 0 ? <span className="font-bold text-red-700">{row.errors.join(" · ")}</span>
                               : <span className="inline-flex items-center gap-1 font-bold text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Bereit</span>}
                           </td>
@@ -280,10 +314,10 @@ export default function ShiftImportDialog({ employees, shifts, onClose, onImport
               {success != null ? "Fertig" : "Abbrechen"}
             </button>
             {success == null && (
-              <button type="button" onClick={importRows} disabled={saving || validRows.length === 0}
+              <button type="button" onClick={importRows} disabled={saving || importableCount === 0}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700 disabled:opacity-50">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : validRows.length === 0 ? <AlertTriangle className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
-                {saving ? "Wird importiert..." : `${validRows.length} Schichten übernehmen`}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : importableCount === 0 ? <AlertTriangle className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                {saving ? "Wird importiert..." : `${importableCount} Schichten übernehmen`}
               </button>
             )}
           </div>

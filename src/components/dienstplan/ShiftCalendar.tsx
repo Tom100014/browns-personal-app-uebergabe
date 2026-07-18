@@ -15,7 +15,7 @@ import ShiftImportDialog from "@/components/dienstplan/ShiftImportDialog"
 
 type AbsenceRow = { employee_id: string; type: string; start_date: string; end_date: string; status: string }
 type DayHours = { open: string; close: string; closed: boolean }
-interface Props { shifts: Shift[]; employees: Employee[]; minStaffing?: Record<string, number>; absences?: AbsenceRow[]; openingHours?: Record<string, DayHours> }
+interface Props { shifts: Shift[]; employees: Employee[]; minStaffing?: Record<string, number>; absences?: AbsenceRow[]; openingHours?: Record<string, DayHours>; initialDate?: string }
 type PlanningIssueLevel = "critical" | "warning" | "info"
 type PlanningIssue = { level: PlanningIssueLevel; title: string; detail: string }
 type PendingPlanReview = {
@@ -33,8 +33,18 @@ type PendingPlanReview = {
 
 const POSITIONS = ["Service", "Theke", "Küche", "Spüle", "Bar", "Kasse", "Reinigung", "Leitung"]
 
-export default function ShiftCalendar({ shifts: initialShifts, employees, minStaffing = {}, absences = [], openingHours = {} }: Props) {
-  const [currentDate, setCurrentDate] = useState(new Date())
+function calendarAnchor(initialDate?: string) {
+  if (!initialDate) return new Date()
+  const parsed = new Date(`${initialDate}T12:00:00`)
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+}
+
+function mondayBasedDayIndex(date: Date) {
+  return (date.getDay() + 6) % 7
+}
+
+export default function ShiftCalendar({ shifts: initialShifts, employees, minStaffing = {}, absences = [], openingHours = {}, initialDate }: Props) {
+  const [currentDate, setCurrentDate] = useState(() => calendarAnchor(initialDate))
   const [shifts, setShifts] = useState<Shift[]>(initialShifts)
   const [adding, setAdding] = useState<{ date: string; employeeId: string } | null>(null)
   const [form, setForm] = useState({ start: "08:00", end: "16:00", position: "Service", note: "" })
@@ -43,7 +53,7 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
   const [openForm, setOpenForm] = useState<{ date: string; start: string; end: string; position: string } | null>(null)
   const [savingOpen, setSavingOpen] = useState(false)
   const [published, setPublished] = useState(false)
-  const [mobileDay, setMobileDay] = useState(0) // Index in weekDays für die Mobil-Tagesansicht
+  const [mobileDay, setMobileDay] = useState(() => mondayBasedDayIndex(calendarAnchor(initialDate))) // Index in weekDays für die Mobil-Tagesansicht
   const [planReview, setPlanReview] = useState<PendingPlanReview | null>(null)
   const [reviewSaving, setReviewSaving] = useState(false)
   const [showImport, setShowImport] = useState(false)

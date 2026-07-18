@@ -4,7 +4,6 @@ import {
   Calendar, 
   UserCheck, 
   LifeBuoy, 
-  ArrowRight, 
   TrendingUp, 
   AlertTriangle,
   Clock,
@@ -19,12 +18,18 @@ import { format, startOfWeek, endOfWeek } from "date-fns"
 import { de } from "date-fns/locale"
 import { formatDayLabel } from "@/lib/coverage"
 import { shiftHours, formatHours } from "@/lib/hours"
+import { PLANNING_EMAIL_SUFFIX } from "@/lib/planning-profile"
 import OccupancyForecast from "@/components/belegung/OccupancyForecast"
 import LiveRefresh from "@/components/realtime/LiveRefresh"
 import WeekHoursChart from "@/components/charts/WeekHoursChart"
+import ActionCenter, { type DashboardActionItem } from "@/components/dashboard/ActionCenter"
 import type { CoverageRequest } from "@/types"
 
 type DashboardCoverage = Pick<CoverageRequest, "id" | "date" | "position"> & { offers?: { id: string }[] }
+type DashboardShift = { id: string; date: string; position: string; start_time: string; end_time: string; note?: string | null }
+type DashboardAbsence = { id: string; type: string; start_date: string; end_date: string; employee?: { name?: string } }
+type DashboardProfile = { id: string; name: string; email: string }
+type DashboardKnowledgeDoc = { id: string; title: string; file_path: string; kind: string; created_at?: string | null }
 
 const initials = (name?: string) => (name ?? "—").split(" ").map(n => n[0]).join("").slice(0, 2)
 
@@ -44,26 +49,71 @@ export default async function DashboardPage() {
   // Choose greeting icon
   const GreetingIcon = hour < 11 ? Sun : hour < 17 ? CloudSun : Moon
 
-  const [{ data: { user } }, { count: employeeCount }, { data: todayShifts }, { data: openEntries }, { count: pendingAbsenceCount }, { data: openCoverage, count: openCoverageCount }, { data: openShifts, count: openShiftCount }, { data: weekShifts }, { data: todayEntries }] = await Promise.all([
+  const [
+    { data: { user } },
+    { count: employeeCount },
+    { data: todayShifts },
+    { data: openEntries },
+    { data: pendingAbsences, count: pendingAbsenceCount },
+    { data: openCoverage, count: openCoverageCount },
+    { data: openShifts, count: openShiftCount },
+    { data: futureDraftShifts, count: futureDraftShiftCount },
+    { data: planningProfiles, count: planningProfileCount },
+    { data: unprocessedKnowledgeDocs },
+    { data: weekShifts },
+    { data: todayEntries },
+  ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("employees").select("id", { count: "exact", head: true }),
     supabase.from("shifts").select("id,employee_id,status,start_time,end_time,position,employee:employees(name,color)").eq("date", today).order("start_time"),
     supabase.from("time_entries").select("id,clock_in,employee:employees(name,color,position)").is("clock_out", null),
-    supabase.from("absences").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("absences")
+      .select("id,type,start_date,end_date,employee:employees(name)", { count: "exact" })
+      .eq("status", "pending")
+      .order("created_at")
+      .limit(3),
     supabase.from("coverage_requests")
       .select("id,date,position,offers:coverage_offers(id)", { count: "exact" })
       .eq("status", "open")
       .order("date")
       .limit(3),
     supabase.from("shifts").select("id,date,position,start_time,end_time", { count: "exact" }).is("employee_id", null).gte("date", today).order("date").limit(3),
+    supabase.from("shifts")
+      .select("id,date,position,start_time,end_time,note", { count: "exact" })
+      .eq("status", "scheduled")
+      .not("employee_id", "is", null)
+      .ilike("note", "%Entwurf%")
+      .gt("date", today)
+      .order("date")
+      .limit(3),
+    supabase.from("employees")
+      .select("id,name,email", { count: "exact" })
+      .ilike("email", `%${PLANNING_EMAIL_SUFFIX}`)
+      .order("name")
+      .limit(3),
+    supabase.from("knowledge_docs")
+      .select("id,title,file_path,kind,created_at")
+      .not("file_path", "is", null)
+      .is("extracted", null)
+      .order("created_at")
+      .limit(100),
     supabase.from("shifts").select("date,start_time,end_time").not("employee_id", "is", null).gte("date", weekStart).lte("date", weekEnd),
     supabase.from("time_entries").select("employee_id").eq("date", today),
   ])
 
   const coverage = (openCoverage ?? []) as DashboardCoverage[]
   const coverageCount = openCoverageCount ?? 0
-  const openShiftList = (openShifts ?? []) as { id: string; date: string; position: string; start_time: string; end_time: string }[]
+  const openShiftList = (openShifts ?? []) as DashboardShift[]
   const unfilledShiftCount = openShiftCount ?? 0
+  const draftShiftList = (futureDraftShifts ?? []) as DashboardShift[]
+  const draftShiftCount = futureDraftShiftCount ?? 0
+  const absenceList = (pendingAbsences ?? []) as DashboardAbsence[]
+  const absenceCount = pendingAbsenceCount ?? 0
+  const planningProfileList = (planningProfiles ?? []) as DashboardProfile[]
+  const profileCount = planningProfileCount ?? 0
+  const knowledgeDocList = ((unprocessedKnowledgeDocs ?? []) as DashboardKnowledgeDoc[])
+    .filter(doc => doc.kind === "bild" || /\.(txt|csv|tsv|md|xlsx)$/i.test(doc.file_path))
+  const knowledgeDocCount = knowledgeDocList.length
 
   // Wer fehlt: Schicht hat begonnen, aber noch nicht eingestempelt
   const clockedIn = new Set((todayEntries ?? []).map((e: { employee_id: string }) => e.employee_id))
@@ -84,14 +134,76 @@ export default async function DashboardPage() {
 
   const stats = [
     { label: "Mitarbeiter", value: employeeCount ?? 0, icon: Users, color: "text-brand-600", bg: "bg-brand-50/70 border border-brand-100/40", href: "/mitarbeiter" },
-    { label: "Schichten heute", value: todayShifts?.length ?? 0, icon: Calendar, color: "text-violet-600", bg: "bg-violet-50/70 border border-violet-100/40", href: "/dienstplan" },
+    { label: "Schichten heute", value: todayShifts?.length ?? 0, icon: Calendar, color: "text-violet-600", bg: "bg-violet-50/70 border border-violet-100/40", href: `/dienstplan?date=${today}` },
     { label: "Gerade im Café", value: openEntries?.length ?? 0, icon: UserCheck, color: "text-emerald-600", bg: "bg-emerald-50/70 border border-emerald-100/40", href: "/zeiterfassung" },
-    { label: "Offene Vertretungen", value: coverageCount, icon: LifeBuoy, color: "text-orange-600", bg: "bg-orange-50/70 border border-orange-100/40", href: "/vertretung" },
+  ]
+
+  const actionItems: DashboardActionItem[] = [
+    ...(unfilledShiftCount > 0 ? [{
+      id: "unfilled-shifts",
+      href: `/dienstplan?date=${openShiftList[0]?.date ?? today}`,
+      title: "Unbesetzte Schichten zuweisen",
+      detail: openShiftList.map(shift => `${shift.position} am ${formatDayLabel(shift.date)}`).join(" · "),
+      count: unfilledShiftCount,
+      kind: "unfilled" as const,
+      severity: "critical" as const,
+      status: "Besetzung",
+    }] : []),
+    ...(coverageCount > 0 ? [{
+      id: "open-coverage",
+      href: "/vertretung",
+      title: "Offene Vertretungen besetzen",
+      detail: coverage.map(request => `${request.position} am ${formatDayLabel(request.date)} (${request.offers?.length ?? 0} Angebote)`).join(" · "),
+      count: coverageCount,
+      kind: "coverage" as const,
+      severity: "critical" as const,
+      status: "Vertretung",
+    }] : []),
+    ...(absenceCount > 0 ? [{
+      id: "pending-absences",
+      href: "/abwesenheiten",
+      title: "Abwesenheitsanträge entscheiden",
+      detail: absenceList.map(absence => `${absence.employee?.name ?? "Mitarbeiter"}: ${formatDayLabel(absence.start_date)}`).join(" · "),
+      count: absenceCount,
+      kind: "absences" as const,
+      severity: "warning" as const,
+      status: "Freigabe",
+    }] : []),
+    ...(draftShiftCount > 0 ? [{
+      id: "future-drafts",
+      href: `/dienstplan?date=${draftShiftList[0]?.date ?? today}`,
+      title: "Zukünftige Schichtentwürfe prüfen",
+      detail: draftShiftList.map(shift => `${shift.position} am ${formatDayLabel(shift.date)}`).join(" · "),
+      count: draftShiftCount,
+      kind: "drafts" as const,
+      severity: "warning" as const,
+      status: "Planung",
+    }] : []),
+    ...(profileCount > 0 ? [{
+      id: "planning-profiles",
+      href: "/mitarbeiter?filter=planung",
+      title: "Planungsprofile vervollständigen",
+      detail: `${planningProfileList.map(profile => profile.name).join(" · ")} · E-Mail, Stammdaten und App-Zugang prüfen.`,
+      count: profileCount,
+      kind: "planning-profiles" as const,
+      severity: "warning" as const,
+      status: "Datenpflege",
+    }] : []),
+    ...(knowledgeDocCount > 0 ? [{
+      id: "unprocessed-knowledge",
+      href: "/einstellungen#wissensdatenbank",
+      title: "Wissensdokumente verarbeiten",
+      detail: knowledgeDocList.slice(0, 3).map(doc => doc.title).join(" · "),
+      count: knowledgeDocCount,
+      kind: "knowledge" as const,
+      severity: "info" as const,
+      status: "Wissensdatenbank",
+    }] : []),
   ]
 
   return (
     <div className="max-w-7xl space-y-6 px-4 py-5 sm:px-6 lg:px-8">
-      <LiveRefresh tables={["shifts", "time_entries", "absences", "coverage_requests", "coverage_offers"]} />
+      <LiveRefresh tables={["shifts", "time_entries", "absences", "coverage_requests", "coverage_offers", "employees", "knowledge_docs"]} />
 
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -112,17 +224,10 @@ export default async function DashboardPage() {
             <p className="text-xs font-semibold text-slate-400">Aktuelle Zeit</p>
             <p className="stat-number text-2xl text-slate-950">{nowHHMM}</p>
           </div>
-          {(pendingAbsenceCount ?? 0) > 0 && (
-            <Link href="/abwesenheiten"
-              className="inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-card transition hover:bg-brand-600">
-            <span>{pendingAbsenceCount} offene Urlaubsanträge</span>
-            <ArrowRight className="w-3 h-3" />
-          </Link>
-          )}
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {stats.map(({ label, value, icon: Icon, color, bg, href }) => (
           <Link key={label} href={href}
             className="surface-card group flex min-h-[132px] flex-col justify-between p-5 transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card-lg">
@@ -136,6 +241,8 @@ export default async function DashboardPage() {
           </Link>
         ))}
       </section>
+
+      <ActionCenter items={actionItems} />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-6">
@@ -173,40 +280,6 @@ export default async function DashboardPage() {
             </div>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {coverageCount > 0 && (
-              <Link href="/vertretung"
-                className="surface-card group flex items-center gap-4 p-5 transition hover:-translate-y-0.5 hover:shadow-card-lg">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-100">
-                  <LifeBuoy className="h-6 w-6 text-orange-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-950">{coverageCount} offene Vertretungsanfragen</p>
-                  <p className="mt-1 truncate text-xs font-medium text-slate-500">
-                    {coverage.slice(0, 3).map(c => `${c.position} am ${formatDayLabel(c.date)} (${c.offers?.length ?? 0} Angebote)`).join(" · ")}
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-orange-500 transition group-hover:translate-x-0.5" />
-              </Link>
-            )}
-
-            {unfilledShiftCount > 0 && (
-              <Link href="/dienstplan"
-                className="surface-card group flex items-center gap-4 p-5 transition hover:-translate-y-0.5 hover:shadow-card-lg">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
-                  <Calendar className="h-6 w-6 text-amber-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-950">{unfilledShiftCount} unbesetzte Schichten</p>
-                  <p className="mt-1 truncate text-xs font-medium text-slate-500">
-                    {openShiftList.slice(0, 3).map(s => `${s.position} am ${formatDayLabel(s.date)}`).join(" · ")}
-                  </p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-amber-500 transition group-hover:translate-x-0.5" />
-              </Link>
-            )}
-          </div>
-
           <div className="surface-card p-5">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
@@ -229,7 +302,7 @@ export default async function DashboardPage() {
                 <h2 className="text-sm font-bold text-slate-950">Schichten am heutigen Tag</h2>
                 <p className="mt-1 text-xs text-slate-400">Alle geplanten Einsätze für heute</p>
               </div>
-              <Link href="/dienstplan" className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
+              <Link href={`/dienstplan?date=${today}`} className="flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700">
                 Dienstplan <ChevronRight className="h-3 w-3" />
               </Link>
             </div>

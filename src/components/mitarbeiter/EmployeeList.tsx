@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Plus, Pencil, Trash2, X, Check, Phone, Mail, ChevronRight, UserPlus, Loader2, ShieldCheck, UserX, Search, Brain, ChevronDown, ChevronUp } from "lucide-react"
+import { Plus, Pencil, Trash2, X, Check, Phone, Mail, ChevronRight, UserPlus, Loader2, ShieldCheck, UserX, Search, Brain, ChevronDown, ChevronUp, UserRoundCog } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { formatEuro } from "@/lib/hours"
+import { isPlanningProfileEmail } from "@/lib/planning-profile"
 import type { Employee } from "@/types"
 import { cn } from "@/lib/utils"
 
@@ -15,7 +16,7 @@ const ROLE_LABELS: Record<string,string> = { employee: "Mitarbeiter", manager: "
 const EMPLOYMENT = ["Vollzeit","Teilzeit","Minijob","Werkstudent","Aushilfe"]
 const DEFAULT_VISIBLE_EMPLOYEES = 12
 
-interface Props { employees: Employee[]; primaryAdminId?: string | null; canManageAdmins?: boolean }
+interface Props { employees: Employee[]; primaryAdminId?: string | null; canManageAdmins?: boolean; planningOnly?: boolean }
 
 type FormState = {
   name: string; email: string; phone: string; position: string
@@ -27,7 +28,7 @@ const emptyForm: FormState = {
   employment_type: "Teilzeit", hourly_wage: "", color: COLORS[0]
 }
 
-export default function EmployeeList({ employees: initial, primaryAdminId = null, canManageAdmins = false }: Props) {
+export default function EmployeeList({ employees: initial, primaryAdminId = null, canManageAdmins = false, planningOnly = false }: Props) {
   const [employees, setEmployees] = useState<Employee[]>(initial)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Employee | null>(null)
@@ -52,9 +53,10 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
         .some(value => value?.toLocaleLowerCase("de-DE").includes(needle))
       const matchesPosition = positionFilter === "all" || employee.position === positionFilter
       const matchesRole = roleFilter === "all" || employee.role === roleFilter
-      return matchesQuery && matchesPosition && matchesRole
+      const matchesPlanningFilter = !planningOnly || isPlanningProfileEmail(employee.email)
+      return matchesQuery && matchesPosition && matchesRole && matchesPlanningFilter
     })
-  }, [employees, positionFilter, query, roleFilter])
+  }, [employees, planningOnly, positionFilter, query, roleFilter])
   const visibleEmployees = showAllEmployees ? filteredEmployees : filteredEmployees.slice(0, DEFAULT_VISIBLE_EMPLOYEES)
 
   function openAccess(emp: Employee) {
@@ -182,6 +184,23 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
         </div>
       )}
 
+      {planningOnly && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3" role="status">
+          <UserRoundCog className="mt-0.5 h-5 w-5 shrink-0 text-sky-700" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-sky-950">Filter: Planungsprofile</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-sky-800">Es werden nur Profile mit einer Adresse nach dem Muster *.plan@browns.local angezeigt.</p>
+          </div>
+          <Link
+            href="/mitarbeiter"
+            aria-label="Planungsprofil-Filter entfernen"
+            className="rounded-md p-1 text-sky-700 transition hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+          >
+            <X className="h-4 w-4" />
+          </Link>
+        </div>
+      )}
+
       <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
         <button
           type="button"
@@ -258,6 +277,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
                     {ROLE_LABELS[emp.role]}
                   </span>
                   {emp.id === primaryAdminId && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800"><ShieldCheck className="h-3 w-3" /> Hauptberechtigt</span>}
+                  {isPlanningProfileEmail(emp.email) && <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-bold text-sky-800"><UserRoundCog className="h-3 w-3" /> Planungsprofil</span>}
                 </div>
               </div>
             </div>
@@ -323,6 +343,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
                       {ROLE_LABELS[emp.role]}
                     </span>
                     {emp.id === primaryAdminId && <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-amber-700"><ShieldCheck className="h-3 w-3" /> Hauptberechtigt</div>}
+                    {isPlanningProfileEmail(emp.email) && <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-sky-700"><UserRoundCog className="h-3 w-3" /> Planungsprofil</div>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end items-center">

@@ -36,3 +36,14 @@ test("web vital ingestion validates its payload", async ({ request }) => {
   })
   expect(rejected.status()).toBe(400)
 })
+
+test("atomic schedule import requires a management session", async ({ request }) => {
+  const baseURL = test.info().project.use.baseURL as string
+  const response = await request.post("/api/shifts/import", {
+    headers: { Origin: baseURL, "Sec-Fetch-Site": "same-origin" },
+    data: { importId: "123e4567-e89b-42d3-a456-426614174000", rows: [{ employeeName: "Neue Testperson", date: "2026-07-20", start: "08:00", end: "16:00", position: "Service" }] },
+  })
+
+  expect(response.status()).toBe(403)
+  await expect(response.json()).resolves.toEqual({ error: "Nicht berechtigt" })
+})

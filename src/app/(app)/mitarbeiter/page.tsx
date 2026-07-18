@@ -5,7 +5,14 @@ import { buildEmployeeIntelligence } from "@/lib/employee-intelligence"
 import { getCurrentStaff } from "@/lib/staff"
 import type { Employee } from "@/types"
 
-export default async function MitarbeiterPage() {
+type MitarbeiterPageProps = {
+  searchParams: Promise<{ filter?: string | string[] }>
+}
+
+export default async function MitarbeiterPage({ searchParams }: MitarbeiterPageProps) {
+  const params = await searchParams
+  const requestedFilter = Array.isArray(params.filter) ? params.filter[0] : params.filter
+  const planningOnly = requestedFilter === "planung"
   const [supabase, staff] = await Promise.all([createClient(), getCurrentStaff()])
   const [{ data: employeeRows }, { data: pay }, intelligence, { data: primaryAdmin }] = await Promise.all([
     supabase.from("employees").select("*").order("name"),
@@ -29,6 +36,7 @@ export default async function MitarbeiterPage() {
         employees={(employees ?? []) as Employee[]}
         primaryAdminId={primaryAdmin?.value ?? null}
         canManageAdmins={staff?.email === "admin@browns.at" || staff?.employee?.role === "admin"}
+        planningOnly={planningOnly}
       />
     </div>
   )

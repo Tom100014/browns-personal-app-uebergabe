@@ -394,7 +394,7 @@ export default function KnowledgeUpload() {
           </div>
         ) : filteredDocs.map(doc => {
           const isAnalyzing = analyzing.has(doc.id)
-          const canAnalyze = Boolean(doc.file_path) && (doc.kind === "bild" || /\.(txt|csv|md|xlsx)$/i.test(doc.file_path ?? ""))
+          const canAnalyze = Boolean(doc.file_path) && (doc.kind === "bild" || /\.(txt|csv|tsv|md|xlsx)$/i.test(doc.file_path ?? ""))
           const meta = doc.parsed.meta
           const metaLine = knowledgeMetaLine(meta)
           const isRisk = meta.signal && ["problem", "krankheit", "fehler"].includes(meta.signal)

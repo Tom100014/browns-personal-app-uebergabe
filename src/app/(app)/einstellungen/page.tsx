@@ -86,6 +86,16 @@ export default function EinstellungenPage() {
     load()
   }, [])
 
+  useEffect(() => {
+    if (window.location.hash !== "#wissensdatenbank") return
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById("wissensdatenbank")
+      target?.scrollIntoView({ block: "start" })
+      target?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
+
   async function saveWifi() {
     setSavingWifi(true)
     const supabase = createClient()
@@ -196,7 +206,7 @@ export default function EinstellungenPage() {
       <MinStaffingEditor />
 
       {/* Wissensdatenbank / Betriebsregeln */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+      <section id="wissensdatenbank" tabIndex={-1} className="mb-4 scroll-mt-4 rounded-lg border border-gray-200 bg-white p-5 focus:outline-none">
         <div className="flex items-start gap-3 mb-4">
           <div className="w-9 h-9 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
             <NotebookPen className="w-4.5 h-4.5 text-violet-600" />
@@ -224,7 +234,7 @@ export default function EinstellungenPage() {
           )}
         </div>
         <KnowledgeUpload />
-      </div>
+      </section>
 
       {/* Benachrichtigungen */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
