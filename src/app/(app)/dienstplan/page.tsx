@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase-server"
 import ShiftCalendar from "@/components/dienstplan/ShiftCalendar"
 import type { Shift, Employee } from "@/types"
 import { addMonths, endOfMonth, format, startOfMonth, subMonths } from "date-fns"
+import PageHeader from "@/components/layout/PageHeader"
 
 type AbsenceRow = { employee_id: string; type: string; start_date: string; end_date: string; status: string }
 
@@ -55,10 +56,7 @@ export default async function DienstplanPage({ searchParams }: DienstplanPagePro
 
   return (
     <div className="p-4 sm:p-6 h-full">
-      <div className="mb-5">
-        <h1 className="text-xl font-bold text-gray-900">Dienstplan</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Wochenansicht · Schichten planen und verwalten</p>
-      </div>
+      <PageHeader title={"Dienstplan"} subtitle={"Wochenansicht · Schichten planen und verwalten"} />
       <ShiftCalendar
         key={initialDate ?? "today"}
         shifts={normalizedShifts}

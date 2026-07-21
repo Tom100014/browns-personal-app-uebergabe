@@ -25,7 +25,7 @@ export default async function MitarbeiterPage({ searchParams }: MitarbeiterPageP
 
   return (
     <div className="px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mb-5">
+      <div className="sticky top-20 lg:top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 pb-3 mb-5 bg-gray-50/95 backdrop-blur border-b border-gray-200/70">
         <h1 className="text-3xl font-bold text-slate-950 sm:text-4xl">Mitarbeiter</h1>
         <p className="text-slate-500 text-sm mt-2">
           Team verwalten · {employees.length} Mitarbeiter · Einladen gibt Zugang zur Mitarbeiter-App

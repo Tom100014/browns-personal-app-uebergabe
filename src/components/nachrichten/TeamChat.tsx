@@ -41,7 +41,10 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
   const [messages, setMessages] = useState<Message[]>(() => orderMessages(initial))
   const [coverageItems, setCoverageItems] = useState<CoverageRequest[]>(coverageRequests)
   const [content, setContent] = useState("")
-  const [selectedEmp, setSelectedEmp] = useState(selfEmployeeId ?? currentEmployeeId ?? employees[0]?.id ?? "")
+  // Admin-Standard: Zeynep Kara (Leitung) ist immer der voreingestellte Absender,
+  // andere Namen bleiben waehlbar.
+  const zeynepId = employees.find(e => e.name.trim().toLowerCase() === "zeynep kara")?.id
+  const [selectedEmp, setSelectedEmp] = useState(selfEmployeeId ?? zeynepId ?? currentEmployeeId ?? employees[0]?.id ?? "")
   const [sending, setSending] = useState(false)
   const [liveState, setLiveState] = useState<"connecting" | "connected" | "offline">("connecting")
 

@@ -18,7 +18,7 @@ export default async function PortalDienstplan() {
     <div className="p-4 sm:p-6 max-w-3xl">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">Mein Dienstplan</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Deine anstehenden Schichten — bestätigen oder abgeben</p>
+        <p className="text-gray-500 text-sm mt-0.5">Dein Plan ist verbindlich — nur melden, wenn ein Tag nicht passt</p>
       </div>
       <MyShifts shifts={(shifts ?? []) as Shift[]} />
     </div>

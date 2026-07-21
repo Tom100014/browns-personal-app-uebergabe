@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { notifyPush } from "@/lib/push-client"
 import { logAudit } from "@/lib/audit"
 import AbsenceTimeline from "./AbsenceTimeline"
+import DateInput from "@/components/ui/DateInput"
 
 export type Absence = {
   id: string; employee_id: string; type: string; start_date: string; end_date: string
@@ -305,13 +306,11 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="absence-start-date" className="text-xs text-gray-500 mb-1 block font-medium">Von</label>
-                  <input id="absence-start-date" name="start_date" type="date" required value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
+                  <DateInput id="absence-start-date" required value={form.start_date} onChange={v => setForm(f => ({ ...f, start_date: v }))} />
                 </div>
                 <div>
                   <label htmlFor="absence-end-date" className="text-xs text-gray-500 mb-1 block font-medium">Bis</label>
-                  <input id="absence-end-date" name="end_date" type="date" required min={form.start_date || undefined} value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
+                  <DateInput id="absence-end-date" required min={form.start_date || undefined} value={form.end_date} onChange={v => setForm(f => ({ ...f, end_date: v }))} />
                 </div>
               </div>
               <div>

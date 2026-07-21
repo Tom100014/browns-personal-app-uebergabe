@@ -12,6 +12,7 @@ import { logAudit } from "@/lib/audit"
 import type { Shift, Employee } from "@/types"
 import { createClient } from "@/lib/supabase"
 import ShiftImportDialog from "@/components/dienstplan/ShiftImportDialog"
+import DateInput from "@/components/ui/DateInput"
 
 type AbsenceRow = { employee_id: string; type: string; start_date: string; end_date: string; status: string }
 type DayHours = { open: string; close: string; closed: boolean }
@@ -808,8 +809,7 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-gray-500 mb-1 block font-medium">Datum</label>
-                <input type="date" value={openForm.date} onChange={e => setOpenForm(f => f && ({ ...f, date: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
+                <DateInput value={openForm.date} onChange={v => setOpenForm(f => f && ({ ...f, date: v }))} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

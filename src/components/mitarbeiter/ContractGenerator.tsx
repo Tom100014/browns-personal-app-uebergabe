@@ -5,6 +5,7 @@ import { FileSignature, Printer, Save, Check, Loader2, AlertTriangle } from "luc
 import { createClient } from "@/lib/supabase"
 import { buildContract, type ContractData } from "@/lib/contract"
 import type { Employee } from "@/types"
+import DateInput from "@/components/ui/DateInput"
 
 const EMPLOYMENT = ["Vollzeit", "Teilzeit", "Minijob", "Werkstudent", "Aushilfe"]
 
@@ -94,7 +95,7 @@ export default function ContractGenerator({ employee }: { employee: Employee }) 
           <div><label className={labelCls}>Stundenlohn €</label><input className={inputCls} value={form.wage} onChange={e => set("wage", e.target.value)} /></div>
           <div><label className={labelCls}>Wochenstd.</label><input className={inputCls} value={form.weeklyHours} onChange={e => set("weeklyHours", e.target.value)} /></div>
         </div>
-        <div><label className={labelCls}>Eintrittsdatum</label><input type="date" className={inputCls} value={form.startDate} onChange={e => set("startDate", e.target.value)} /></div>
+        <div><label className={labelCls}>Eintrittsdatum</label><DateInput className={inputCls} value={form.startDate} onChange={v => set("startDate", v)} /></div>
         <div className="grid grid-cols-2 gap-3">
           <div><label className={labelCls}>Probezeit (Monate)</label><input className={inputCls} value={form.probationMonths} onChange={e => set("probationMonths", e.target.value)} /></div>
           <div><label className={labelCls}>Urlaubstage</label><input className={inputCls} value={form.vacationDays} onChange={e => set("vacationDays", e.target.value)} /></div>

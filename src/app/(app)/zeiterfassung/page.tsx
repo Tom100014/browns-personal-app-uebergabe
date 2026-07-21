@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase-server"
 import TimeTracker from "@/components/zeiterfassung/TimeTracker"
 import type { TimeEntry, Employee } from "@/types"
+import PageHeader from "@/components/layout/PageHeader"
 
 export default async function ZeiterfassungPage() {
   const supabase = await createClient()
@@ -12,10 +13,7 @@ export default async function ZeiterfassungPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-5">
-        <h1 className="text-xl font-bold text-gray-900">Zeiterfassung</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Ein- und Ausstempeln · Stundenübersicht · WiFi-Verifikation</p>
-      </div>
+      <PageHeader title={"Zeiterfassung"} subtitle={"Ein- und Ausstempeln · Stundenübersicht · WiFi-Verifikation"} />
       <TimeTracker
         entries={(entries ?? []) as TimeEntry[]}
         employees={(employees ?? []) as Employee[]}

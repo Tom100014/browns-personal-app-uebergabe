@@ -67,8 +67,15 @@ export async function POST(request: NextRequest) {
     return jsonNoStore({ error: "Zugang konnte nicht sicher geprüft werden" }, { status: 500 })
   }
 
-  if (employee.auth_user_id && authUser?.id !== employee.auth_user_id) {
+  // E-Mail-Aenderung bei bestehendem Login: denselben Auth-User umbenennen,
+  // statt die Einladung an die neue Adresse zu blockieren.
+  if (employee.auth_user_id && authUser && authUser.id !== employee.auth_user_id) {
     return jsonNoStore({ error: "Dieser Mitarbeiter ist bereits mit einem anderen Login verknüpft." }, { status: 409 })
+  }
+  if (employee.auth_user_id && !authUser) {
+    const { error: renameError } = await admin.auth.admin.updateUserById(employee.auth_user_id, { email })
+    if (renameError) return jsonNoStore({ error: "E-Mail konnte nicht geändert werden" }, { status: 400 })
+    authUser = { id: employee.auth_user_id } as User
   }
 
   let reinvited = false

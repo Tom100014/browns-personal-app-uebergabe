@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase-server"
 import TeamChat from "@/components/nachrichten/TeamChat"
 import type { Message, Employee, CoverageRequest } from "@/types"
+import PageHeader from "@/components/layout/PageHeader"
 
 export default async function NachrichtenPage() {
   const supabase = await createClient()
@@ -11,10 +12,7 @@ export default async function NachrichtenPage() {
   ])
   return (
     <div className="flex min-h-0 flex-col overflow-hidden p-4 sm:p-6">
-      <div className="mb-4 shrink-0 sm:mb-5">
-        <h1 className="text-xl font-bold text-gray-900">Nachrichten</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Team-Kommunikation &amp; Ersatzsuche</p>
-      </div>
+      <PageHeader title={"Nachrichten"} subtitle={"Team-Kommunikation & Ersatzsuche"} />
       <TeamChat
         messages={((messages ?? []) as Message[]).reverse()}
         employees={(employees ?? []) as Employee[]}

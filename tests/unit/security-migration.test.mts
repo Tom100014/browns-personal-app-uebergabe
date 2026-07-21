@@ -51,3 +51,11 @@ test("schedule imports are atomic, idempotent and service-role only", () => {
   assert.match(atomicImportSql, /revoke all on function[\s\S]*anon, authenticated/i)
   assert.match(atomicImportSql, /grant execute on function[\s\S]*service_role/i)
 })
+
+test("server components tolerate Supabase cookie refreshes", () => {
+  const source = readFileSync(new URL("../../src/lib/supabase-server.ts", import.meta.url), "utf8")
+
+  assert.match(source, /setAll\(cookiesToSet\)\s*\{\s*try\s*\{/)
+  assert.match(source, /cookieStore\.set\(name, value, options\)/)
+  assert.match(source, /catch\s*\{/)
+})

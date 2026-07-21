@@ -11,6 +11,7 @@ import ContractGenerator from "./ContractGenerator"
 import type { Employee, EmployeeDocument } from "@/types"
 import { format } from "date-fns"
 import { de } from "date-fns/locale"
+import DateInput from "@/components/ui/DateInput"
 
 const POSITIONS = ["Service", "Theke", "Küche", "Spüle", "Bar", "Kasse", "Reinigung", "Leitung"]
 const ROLES = [
@@ -199,10 +200,10 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
             </div>
             <div><label htmlFor="employee-vacation-days" className={labelCls}>Urlaubsanspruch (Tage/Jahr)</label><input id="employee-vacation-days" name="vacation_days_per_year" type="text" inputMode="numeric" placeholder="28" className={inputCls} value={form.vacation_days_per_year} onChange={e => set("vacation_days_per_year", e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label htmlFor="employee-start-date" className={labelCls}>Eintrittsdatum</label><input id="employee-start-date" name="start_date" type="date" className={inputCls} value={form.start_date} onChange={e => set("start_date", e.target.value)} /></div>
+              <div><label htmlFor="employee-start-date" className={labelCls}>Eintrittsdatum</label><DateInput id="employee-start-date" className={inputCls} value={form.start_date} onChange={v => set("start_date", v)} /></div>
               <div><label htmlFor="employee-personnel-number" className={labelCls}>Personalnummer</label><input id="employee-personnel-number" name="personnel_number" type="text" inputMode="numeric" placeholder="z.B. 1001" className={inputCls} value={form.personnel_number} onChange={e => set("personnel_number", e.target.value)} /></div>
             </div>
-            <div><label htmlFor="employee-birth-date" className={labelCls}>Geburtsdatum</label><input id="employee-birth-date" name="birth_date" type="date" autoComplete="bday" className={inputCls} value={form.birth_date} onChange={e => set("birth_date", e.target.value)} /></div>
+            <div><label htmlFor="employee-birth-date" className={labelCls}>Geburtsdatum</label><DateInput id="employee-birth-date" className={inputCls} value={form.birth_date} onChange={v => set("birth_date", v)} /></div>
             <div className="sm:col-span-2"><label htmlFor="employee-notes" className={labelCls}>Notizen</label>
               <textarea id="employee-notes" name="notes" rows={3} className={inputCls} value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Interne Notizen, z.B. Allergien, Verfügbarkeiten …" />
             </div>

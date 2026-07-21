@@ -7,6 +7,7 @@ import { useRealtimeRefresh } from "@/lib/realtime"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { de } from "date-fns/locale"
+import DateInput from "@/components/ui/DateInput"
 
 type Absence = { id: string; type: string; start_date: string; end_date: string; note?: string; status: string; created_at: string; attachment_path?: string | null }
 
@@ -160,13 +161,11 @@ export default function MyAbsence({ absences: initial, employeeId }: { absences:
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="my-absence-start-date" className="text-xs text-gray-500 mb-1 block font-medium">Von</label>
-                  <input ref={startDateRef} id="my-absence-start-date" name="start_date" type="date" required value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
+                  <DateInput id="my-absence-start-date" required value={form.start_date} onChange={v => setForm(f => ({ ...f, start_date: v }))} />
                 </div>
                 <div>
                   <label htmlFor="my-absence-end-date" className="text-xs text-gray-500 mb-1 block font-medium">Bis</label>
-                  <input id="my-absence-end-date" name="end_date" type="date" required min={form.start_date || undefined} value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
+                  <DateInput id="my-absence-end-date" required min={form.start_date || undefined} value={form.end_date} onChange={v => setForm(f => ({ ...f, end_date: v }))} />
                 </div>
               </div>
               <div>

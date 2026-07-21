@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, Clock, CalendarDays, Repeat, Loader2, Download, Printer, CalendarPlus } from "lucide-react"
+import { Clock, CalendarDays, CalendarX, Loader2, Download, Printer, CalendarPlus } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import { formatDayLabel } from "@/lib/coverage"
@@ -20,16 +20,10 @@ export default function MyShifts({ shifts: initial }: { shifts: Shift[] }) {
   useRealtimeRefresh(["shifts", "coverage_requests"])
   useEffect(() => { setShifts(initial) }, [initial])
 
-  async function confirm(shift: Shift) {
-    setBusy(shift.id)
-    const supabase = createClient()
-    await supabase.from("shifts").update({ status: "confirmed" }).eq("id", shift.id)
-    setShifts(prev => prev.map(s => s.id === shift.id ? { ...s, status: "confirmed" } : s))
-    setBusy(null)
-  }
-
-  async function giveUp(shift: Shift) {
-    if (!confirmWindow(`Schicht am ${formatDayLabel(shift.date)} wirklich abgeben? Das Team wird um Ersatz gebeten.`)) return
+  // Der veroeffentlichte Plan gilt als verbindlich — Mitarbeiter muessen nicht
+  // jeden Tag einzeln bestaetigen. Nur wenn ein Tag NICHT passt, wird er gemeldet.
+  async function reportProblem(shift: Shift) {
+    if (!confirmWindow(`Passt der ${formatDayLabel(shift.date)} wirklich nicht? Die Leitung wird informiert und es wird Ersatz gesucht.`)) return
     setBusy(shift.id)
     try {
       const response = await fetch("/api/coverage/request", {
@@ -40,7 +34,7 @@ export default function MyShifts({ shifts: initial }: { shifts: Shift[] }) {
       const result = await response.json().catch(() => null) as { opened?: number; duplicates?: number; error?: string } | null
       if (response.ok && Number(result?.opened ?? 0) > 0) {
         setShifts(prev => prev.filter(s => s.id !== shift.id))
-        setNotice("Deine Schicht wurde zur Vertretung freigegeben. Das Team wurde im Chat informiert, die Leitung bestätigt den Ersatz.")
+        setNotice("Gemeldet: Dieser Tag passt nicht. Die Leitung wurde informiert und es wird Ersatz gesucht.")
       } else if (response.ok && Number(result?.duplicates ?? 0) > 0) {
         setNotice("Für diese Schicht läuft bereits eine Vertretungsanfrage.")
       } else {
@@ -70,7 +64,7 @@ export default function MyShifts({ shifts: initial }: { shifts: Shift[] }) {
     const head = ["Datum", "Tag", "Von", "Bis", "Stunden", "Station", "Status"]
     const lines = shifts.map(s => [
       s.date, formatDayLabel(s.date), s.start_time.slice(0, 5), s.end_time.slice(0, 5),
-      String(shiftHours(s)).replace(".", ","), s.position, s.status === "confirmed" ? "Bestätigt" : "Geplant",
+      String(shiftHours(s)).replace(".", ","), s.position, "Verbindlich",
     ])
     const csv = [head, ...lines].map(r => r.map(c => `"${c}"`).join(";")).join("\r\n")
     download("﻿" + csv, "Mein-Dienstplan.csv", "text/csv;charset=utf-8;")
@@ -99,7 +93,7 @@ export default function MyShifts({ shifts: initial }: { shifts: Shift[] }) {
   function printPlan() {
     if (shifts.length === 0) return
     const esc = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    const rows = shifts.map(s => `<tr><td>${esc(formatDayLabel(s.date))}, ${s.date.slice(8,10)}.${s.date.slice(5,7)}.</td><td class="t">${s.start_time.slice(0,5)}–${s.end_time.slice(0,5)}</td><td class="t">${String(shiftHours(s)).replace(".", ",")} h</td><td>${esc(s.position)}</td><td>${s.status === "confirmed" ? "Bestätigt" : "Geplant"}</td></tr>`).join("")
+    const rows = shifts.map(s => `<tr><td>${esc(formatDayLabel(s.date))}, ${s.date.slice(8,10)}.${s.date.slice(5,7)}.</td><td class="t">${s.start_time.slice(0,5)}–${s.end_time.slice(0,5)}</td><td class="t">${String(shiftHours(s)).replace(".", ",")} h</td><td>${esc(s.position)}</td><td>${"Verbindlich"}</td></tr>`).join("")
     const html = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Mein Dienstplan</title><style>
       body{font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1f2937;margin:32px;font-size:13px}
       .brand{font-weight:800;letter-spacing:.1em;color:#9a3412}h1{font-size:20px;margin:4px 0 16px}
@@ -152,21 +146,14 @@ export default function MyShifts({ shifts: initial }: { shifts: Shift[] }) {
                     <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{hhmm(s.start_time)}–{hhmm(s.end_time)} · {formatHours(shiftHours(s))}</span>
                   </p>
                 </div>
-                <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0",
-                  s.status === "confirmed" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600")}>
-                  {s.status === "confirmed" ? "Bestätigt" : "Geplant"}
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 bg-emerald-50 text-emerald-700">
+                  Verbindlich
                 </span>
               </div>
               <div className="flex gap-2 mt-3">
-                {s.status !== "confirmed" && (
-                  <button onClick={() => confirm(s)} disabled={busy === s.id}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition disabled:opacity-50">
-                    {busy === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Bestätigen
-                  </button>
-                )}
-                <button onClick={() => giveUp(s)} disabled={busy === s.id}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium transition disabled:opacity-50">
-                  <Repeat className="w-3.5 h-3.5" /> Abgeben
+                <button onClick={() => reportProblem(s)} disabled={busy === s.id}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium transition disabled:opacity-50">
+                  {busy === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarX className="w-3.5 h-3.5" />} Passt nicht — melden
                 </button>
               </div>
             </div>

@@ -4,8 +4,8 @@ const SECTIONS = [
   { icon: Home, title: "Start", points: ["Deine nächste Schicht und deine Stunden dieser Woche auf einen Blick."] },
   { icon: Calendar, title: "Mein Plan", points: [
     "Deine anstehenden Schichten.",
-    "„Bestätigen\": du sagst zu, dass du die Schicht übernimmst.",
-    "„Abgeben\": du kannst nicht — das System sucht Ersatz, die Leitung bestätigt.",
+    "Der veröffentlichte Plan ist verbindlich — kein tägliches Bestätigen nötig.",
+    "„Passt nicht — melden\": ein Tag geht nicht — die Leitung wird informiert, es wird Ersatz gesucht.",
   ] },
   { icon: Clock, title: "Stempeln", points: [
     "Ein- und Ausstempeln zu Schichtbeginn/-ende.",
