@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LifeBuoy, Clock, CalendarDays, Hand, Check, UserCheck } from "lucide-react"
+import { LifeBuoy, Clock, CalendarDays, Hand, Check, UserCheck, AlertTriangle } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import { formatDayLabel } from "@/lib/coverage"
@@ -23,6 +23,7 @@ export default function MyCoverage({ requests, employees, selfId }: Props) {
     return m
   })
   const [busy, setBusy] = useState<string | null>(null)
+  const [actionError, setActionError] = useState("")
 
   // Live-Sync: neue Ersatz-Gesuche erscheinen sofort.
   useRealtimeRefresh(["coverage_requests", "coverage_offers"])
@@ -37,11 +38,16 @@ export default function MyCoverage({ requests, employees, selfId }: Props) {
 
   async function offer(req: CoverageRequest) {
     setBusy(req.id)
+    setActionError("")
     const supabase = createClient()
-    const { data } = await supabase.from("coverage_offers")
-      .insert({ request_id: req.id, employee_id: selfId, created_at: new Date().toISOString() })
-      .select().single()
-    if (data) {
+    try {
+      const { data, error } = await supabase.from("coverage_offers")
+        .insert({ request_id: req.id, employee_id: selfId, created_at: new Date().toISOString() })
+        .select().single()
+      if (error || !data) {
+        setActionError("Zusage konnte nicht gespeichert werden. Bitte erneut versuchen.")
+        return
+      }
       setOffered(prev => ({ ...prev, [req.id]: true }))
       await supabase.from("messages").insert({
         employee_id: selfId,
@@ -50,8 +56,11 @@ export default function MyCoverage({ requests, employees, selfId }: Props) {
         meta: { request_id: req.id },
         created_at: new Date().toISOString(),
       })
+    } catch {
+      setActionError("Zusage konnte nicht gespeichert werden. Bitte erneut versuchen.")
+    } finally {
+      setBusy(null)
     }
-    setBusy(null)
   }
 
   if (requests.length === 0) {
@@ -64,37 +73,45 @@ export default function MyCoverage({ requests, employees, selfId }: Props) {
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {requests.map(req => {
-        const orig = empById(req.original_employee_id)
-        const iOffered = offered[req.id]
-        const suggestedIsMe = req.suggested_employee_id === selfId
-        return (
-          <div key={req.id} className="bg-white border border-orange-200 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-                <LifeBuoy className="w-4.5 h-4.5 text-orange-600" />
+    <div className="space-y-4">
+      {actionError && (
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          {actionError}
+        </div>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {requests.map(req => {
+          const orig = empById(req.original_employee_id)
+          const iOffered = offered[req.id]
+          const suggestedIsMe = req.suggested_employee_id === selfId
+          return (
+            <div key={req.id} className="bg-white border border-orange-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+                  <LifeBuoy className="w-4.5 h-4.5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{req.position}</p>
+                  <p className="text-xs text-gray-500">{orig ? `${orig.name} fällt aus` : "Schicht frei"}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">{req.position}</p>
-                <p className="text-xs text-gray-500">{orig ? `${orig.name} fällt aus` : "Schicht frei"}</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 mb-3">
+                <span className="inline-flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5 text-gray-400" />{formatDayLabel(req.date)}</span>
+                <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-gray-400" />{hhmm(req.start_time)}–{hhmm(req.end_time)} Uhr</span>
               </div>
+              {suggestedIsMe && !iOffered && (
+                <p className="text-xs text-brand-700 bg-brand-50 rounded-lg px-2.5 py-1.5 mb-2">💡 Du wärst eine gute Besetzung für diese Schicht.</p>
+              )}
+              <button onClick={() => offer(req)} disabled={iOffered || busy === req.id}
+                className={cn("w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition",
+                  iOffered ? "bg-emerald-100 text-emerald-700 cursor-default" : "bg-orange-600 hover:bg-orange-700 text-white")}>
+                {iOffered ? <><Check className="w-4 h-4" /> Du hast zugesagt</> : <><Hand className="w-4 h-4" /> Ich kann übernehmen</>}
+              </button>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 mb-3">
-              <span className="inline-flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5 text-gray-400" />{formatDayLabel(req.date)}</span>
-              <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-gray-400" />{hhmm(req.start_time)}–{hhmm(req.end_time)} Uhr</span>
-            </div>
-            {suggestedIsMe && !iOffered && (
-              <p className="text-xs text-brand-700 bg-brand-50 rounded-lg px-2.5 py-1.5 mb-2">💡 Du wärst eine gute Besetzung für diese Schicht.</p>
-            )}
-            <button onClick={() => offer(req)} disabled={iOffered || busy === req.id}
-              className={cn("w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition",
-                iOffered ? "bg-emerald-100 text-emerald-700 cursor-default" : "bg-orange-600 hover:bg-orange-700 text-white")}>
-              {iOffered ? <><Check className="w-4 h-4" /> Du hast zugesagt</> : <><Hand className="w-4 h-4" /> Ich kann übernehmen</>}
-            </button>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
