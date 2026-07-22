@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   const staff = await getCurrentStaff()
   if (!staff?.isManager) return jsonNoStore({ error: "Nicht berechtigt" }, { status: 403 })
 
-  const limited = await enforceRateLimit(request, "set-access", 6, 10 * 60_000, staff.userId)
+  const limited = await enforceRateLimit(request, "set-access", 50, 10 * 60_000, staff.userId)
   if (limited) return limited
 
   const body = await request.json().catch(() => null)
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
 
   if (!createdUser) {
     const { error } = await admin.auth.admin.updateUserById(authUser.id, { password, ban_duration: "none" })
-    if (error) return jsonNoStore({ error: "Passwort konnte nicht gesetzt werden" }, { status: 400 })
+    if (error) return jsonNoStore({ error: "Passwort konnte nicht gesetzt werden: " + error.message }, { status: 400 })
   }
 
   const { error: linkError } = await admin.from("employees")
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     .eq("id", employee.id)
   if (linkError) {
     if (createdUser) await admin.auth.admin.deleteUser(authUser.id)
-    return jsonNoStore({ error: "Zugang konnte nicht mit dem Mitarbeiter verknüpft werden" }, { status: 500 })
+    return jsonNoStore({ error: "Zugang konnte nicht verknüpft werden: " + linkError.message }, { status: 500 })
   }
 
   // Sende E-Mail-Bestätigung & Anleitung an den Mitarbeiter per Resend

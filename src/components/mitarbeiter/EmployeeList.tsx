@@ -39,6 +39,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
   const [accessEmail, setAccessEmail] = useState("")
   const [accessPw, setAccessPw] = useState("")
   const [accessBusy, setAccessBusy] = useState(false)
+  const [modalError, setModalError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [positionFilter, setPositionFilter] = useState("all")
   const [roleFilter, setRoleFilter] = useState("all")
@@ -61,7 +62,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
 
   function openAccess(emp: Employee) {
     if (emp.role === "admin" && !canManageAdmins) return
-    setAccessFor(emp); setAccessEmail(emp.email); setAccessPw(""); setInviteMsg(null)
+    setAccessFor(emp); setAccessEmail(emp.email); setAccessPw(""); setInviteMsg(null); setModalError(null)
   }
 
   function openEdit(emp: Employee) {
@@ -100,7 +101,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
 
   async function sendInvite() {
     if (!accessFor || !accessEmail) return
-    setAccessBusy(true); setInviteMsg(null)
+    setAccessBusy(true); setInviteMsg(null); setModalError(null)
     try {
       const res = await fetch("/api/invite", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -112,15 +113,15 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
         setEmployees(prev => prev.map(e => e.id === accessFor.id ? { ...e, email: accessEmail, auth_user_id: "pending" } : e))
         setAccessFor(null)
       } else {
-        setInviteMsg(`Fehler: ${json.error ?? "Einladung fehlgeschlagen"}`)
+        setModalError(json.error ?? "Einladung fehlgeschlagen")
       }
-    } catch { setInviteMsg("Einladung fehlgeschlagen.") }
+    } catch { setModalError("Einladung fehlgeschlagen.") }
     setAccessBusy(false)
   }
 
   async function setDirectPassword() {
     if (!accessFor || !accessEmail || accessPw.length < 8) return
-    setAccessBusy(true); setInviteMsg(null)
+    setAccessBusy(true); setInviteMsg(null); setModalError(null)
     try {
       const res = await fetch("/api/set-access", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -132,9 +133,9 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
         setEmployees(prev => prev.map(e => e.id === accessFor.id ? { ...e, email: accessEmail, auth_user_id: "active" } : e))
         setAccessFor(null)
       } else {
-        setInviteMsg(`Fehler: ${json.error ?? "Passwort konnte nicht gesetzt werden"}`)
+        setModalError(json.error ?? "Passwort konnte nicht gesetzt werden")
       }
-    } catch { setInviteMsg("Vorgang fehlgeschlagen.") }
+    } catch { setModalError("Vorgang fehlgeschlagen.") }
     setAccessBusy(false)
   }
 
@@ -398,6 +399,13 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
                 ? `${accessFor.name} ist als Hauptberechtigte geschützt. Passwort und Login können verwaltet, der Zugang aber nicht storniert werden.`
                 : accessFor.auth_user_id ? "Zugang ist aktiv — hier kannst du das Passwort neu setzen oder den Zugang stornieren." : "Gib diesem Mitarbeiter Zugang zur Mitarbeiter-App."}
             </p>
+
+            {modalError && (
+              <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-800">
+                <span className="flex-1">{modalError}</span>
+                <button onClick={() => setModalError(null)} className="text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            )}
 
             {accessFor.id === primaryAdminId && (
               <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">

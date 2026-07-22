@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   const staff = await getCurrentStaff()
   if (!staff?.isManager) return jsonNoStore({ error: "Nicht berechtigt" }, { status: 403 })
 
-  const limited = await enforceRateLimit(request, "invite", 8, 10 * 60_000, staff.userId)
+  const limited = await enforceRateLimit(request, "invite", 50, 10 * 60_000, staff.userId)
   if (limited) return limited
 
   const body = await request.json().catch(() => null)
