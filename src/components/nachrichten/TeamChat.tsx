@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Send, LifeBuoy, Check, Hand, Trash2, Eraser, MessageSquare, Users, Wifi, ChevronDown } from "lucide-react"
+import { Send, LifeBuoy, Check, Clock, Hand, Trash2, Eraser, MessageSquare, Users, Wifi, ChevronDown } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import type { Employee, Message, CoverageRequest, CoverageOffer } from "@/types"
 import { cn } from "@/lib/utils"
@@ -253,6 +253,8 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
     const suggested = empById(msg.meta?.suggested_id)
     const filled = req?.status === "filled"
     const filledBy = empById(req?.filled_by)
+    // Die Schicht ist vorbei — "Ich kann übernehmen" bleibt sonst dauerhaft anklickbar.
+    const expired = !filled && req ? req.date < format(new Date(), "yyyy-MM-dd") : false
 
     return (
       <div className="my-3 mx-auto w-full max-w-lg rounded-2xl border border-brand-200/80 bg-white px-4 py-3.5 shadow-card">
@@ -289,6 +291,10 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
         {filled ? (
           <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-emerald-700">
             <Check className="w-4 h-4" /> Übernommen von {filledBy?.name ?? "—"}
+          </div>
+        ) : expired ? (
+          <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-gray-400">
+            <Clock className="w-4 h-4" /> Zeitraum abgelaufen
           </div>
         ) : (
           <button

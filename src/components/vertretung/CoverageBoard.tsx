@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { LifeBuoy, Check, Sparkles, Clock, CalendarDays, X, UserCheck, AlertTriangle } from "lucide-react"
+import { format } from "date-fns"
 import { createClient } from "@/lib/supabase"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import { formatDayLabel } from "@/lib/coverage"
@@ -24,7 +25,10 @@ export default function CoverageBoard({ requests: initial, employees }: Props) {
   useEffect(() => { setRequests(initial) }, [initial])
 
   const empById = (id?: string | null) => employees.find(e => e.id === id)
-  const open = requests.filter(r => r.status === "open")
+  // Vergangene, nie besetzte Anfragen bleiben in der Datenbank offen, sollen sich
+  // hier aber nicht mehr als "zu erledigen" darstellen — die Schicht ist vorbei.
+  const todayStr = format(new Date(), "yyyy-MM-dd")
+  const open = requests.filter(r => r.status === "open" && r.date >= todayStr)
   const filled = requests.filter(r => r.status === "filled")
 
   async function assign(req: CoverageRequest, employeeId: string) {

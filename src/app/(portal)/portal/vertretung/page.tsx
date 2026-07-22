@@ -7,10 +7,12 @@ export default async function PortalVertretung() {
   const staff = await getCurrentStaff()
   if (!staff?.employee) return null
   const supabase = await createClient()
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" })
   const [{ data: coverage }, { data: employees }] = await Promise.all([
     supabase.from("coverage_requests")
       .select("*, offers:coverage_offers(*)")
       .eq("status", "open")
+      .gte("date", today)
       .order("date"),
     supabase.from("employee_directory").select("id,name,color,position,role").order("name"),
   ])

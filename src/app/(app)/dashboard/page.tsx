@@ -75,6 +75,7 @@ export default async function DashboardPage() {
     supabase.from("coverage_requests")
       .select("id,date,position,offers:coverage_offers(id)", { count: "exact" })
       .eq("status", "open")
+      .gte("date", today)
       .order("date")
       .limit(3),
     supabase.from("shifts").select("id,date,position,start_time,end_time", { count: "exact" }).is("employee_id", null).gte("date", today).order("date").limit(3),
@@ -133,10 +134,12 @@ export default async function DashboardPage() {
   const chartData = WD.map((day, i) => ({ day, stunden: Math.round(weekHours[i] * 10) / 10, istHeute: i === todayIdx }))
 
   const stats = [
-    { label: "Mitarbeiter", value: employeeCount ?? 0, icon: Users, color: "text-brand-600", bg: "bg-brand-50/70 border border-brand-100/40", href: "/mitarbeiter" },
-    { label: "Schichten heute", value: todayShifts?.length ?? 0, icon: Calendar, color: "text-violet-600", bg: "bg-violet-50/70 border border-violet-100/40", href: `/dienstplan?date=${today}` },
-    { label: "Gerade im Café", value: openEntries?.length ?? 0, icon: UserCheck, color: "text-emerald-600", bg: "bg-emerald-50/70 border border-emerald-100/40", href: "/zeiterfassung" },
+    { label: "Mitarbeiter", value: employeeCount ?? 0, icon: Users, color: "text-brand-600", bg: "bg-brand-50/70 border border-brand-100/40", accent: "before:bg-brand-400", href: "/mitarbeiter" },
+    { label: "Schichten heute", value: todayShifts?.length ?? 0, icon: Calendar, color: "text-violet-600", bg: "bg-violet-50/70 border border-violet-100/40", accent: "before:bg-violet-400", href: `/dienstplan?date=${today}` },
+    { label: "Gerade im Café", value: openEntries?.length ?? 0, icon: UserCheck, color: "text-emerald-600", bg: "bg-emerald-50/70 border border-emerald-100/40", accent: "before:bg-emerald-400", href: "/zeiterfassung" },
   ]
+
+  const nextShift = ((todayShifts ?? []) as { start_time: string }[]).find(s => s.start_time.slice(0, 5) > nowHHMM)
 
   const actionItems: DashboardActionItem[] = [
     ...(unfilledShiftCount > 0 ? [{
@@ -205,32 +208,40 @@ export default async function DashboardPage() {
     <div className="max-w-7xl space-y-6 px-4 py-5 sm:px-6 lg:px-8">
       <LiveRefresh tables={["shifts", "time_entries", "absences", "coverage_requests", "coverage_offers", "employees", "knowledge_docs"]} />
 
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-card">
-            <Sparkles className="h-3.5 w-3.5" />
-            Browns Admin Dashboard
+      <div className="soft-panel overflow-hidden p-6 sm:p-8">
+        <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand-700 shadow-card">
+              <Sparkles className="h-3.5 w-3.5" />
+              Browns Admin Dashboard
+            </div>
+            <h1 className="flex items-center gap-3 text-3xl leading-tight text-slate-950 sm:text-5xl">
+              <GreetingIcon className="h-8 w-8 text-brand-500 sm:h-10 sm:w-10" />
+              {greeting}, Leitung
+            </h1>
+            <p className="mt-3 text-sm capitalize leading-relaxed text-slate-500">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })}</p>
+            <p className="mt-1 text-xs text-slate-400">{user?.email}</p>
           </div>
-          <h1 className="flex items-center gap-3 text-3xl leading-tight text-slate-950 sm:text-5xl">
-            <GreetingIcon className="h-8 w-8 text-brand-500" />
-            {greeting}, Leitung
-          </h1>
-          <p className="mt-3 text-sm capitalize text-slate-500">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })}</p>
-          <p className="mt-1 text-xs text-slate-400">{user?.email}</p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="rounded-2xl bg-white px-4 py-3 text-right shadow-card">
-            <p className="text-xs font-semibold text-slate-400">Aktuelle Zeit</p>
-            <p className="stat-number text-2xl text-slate-950">{nowHHMM}</p>
+          <div className="grid grid-cols-2 gap-3 sm:min-w-[360px]">
+            <div className="rounded-3xl bg-white p-4 shadow-card">
+              <Clock className="mb-4 h-5 w-5 text-brand-500" />
+              <p className="stat-number text-3xl text-slate-950">{nowHHMM}</p>
+              <p className="text-xs font-semibold text-slate-400">Aktuelle Zeit</p>
+            </div>
+            <div className="rounded-3xl bg-white p-4 shadow-card">
+              <Calendar className="mb-4 h-5 w-5 text-brand-500" />
+              <p className="stat-number text-3xl text-slate-950">{nextShift ? nextShift.start_time.slice(0, 5) : "—"}</p>
+              <p className="text-xs font-semibold text-slate-400">{nextShift ? "Nächste Schicht" : "Keine weitere Schicht"}</p>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {stats.map(({ label, value, icon: Icon, color, bg, href }) => (
+        {stats.map(({ label, value, icon: Icon, color, bg, accent, href }) => (
           <Link key={label} href={href}
-            className="surface-card group flex min-h-[132px] flex-col justify-between p-5 transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card-lg">
+            className={`surface-card group relative flex min-h-[132px] flex-col justify-between overflow-hidden p-5 transition before:absolute before:inset-x-0 before:top-0 before:h-1 before:content-[''] hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card-lg ${accent}`}>
             <div className="flex items-start justify-between">
               <span className="stat-number text-3xl font-bold leading-none text-slate-950 sm:text-4xl">{value}</span>
               <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${bg}`}>
@@ -317,7 +328,10 @@ export default async function DashboardPage() {
                 {(todayShifts as { id: string; start_time?: string; end_time?: string; position: string; status: string; employee?: { name?: string; color?: string } }[]).map(s => (
                   <div key={s.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 transition hover:bg-white">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: s.employee?.color ?? "#4a8df7" }} />
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                        style={{ backgroundColor: s.employee?.color ?? "#4a8df7" }}>
+                        {initials(s.employee?.name)}
+                      </span>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-bold text-slate-950">{s.employee?.name ?? "Offene Schicht"}</p>
                         <p className="mt-0.5 text-xs tabular-nums text-slate-500">
