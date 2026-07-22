@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, Fragment } from "react"
-import { addWeeks, subWeeks, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, format } from "date-fns"
+import { addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, format } from "date-fns"
 import { de } from "date-fns/locale"
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Plus, X, LifeBuoy, Clock, Megaphone, Trash2, Download, Printer, ShieldAlert, FileUp } from "lucide-react"
 import { cn, getWeekDays, formatTime, calcHours, formatDate } from "@/lib/utils"
@@ -50,7 +50,7 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
   const [adding, setAdding] = useState<{ date: string; employeeId: string } | null>(null)
   const [form, setForm] = useState({ start: "08:00", end: "16:00", position: "Service", note: "" })
   const [saving, setSaving] = useState(false)
-  const [view, setView] = useState<"week" | "month">("week")
+  const [view, setView] = useState<"day" | "week" | "month">("week")
   const [openForm, setOpenForm] = useState<{ date: string; start: string; end: string; position: string } | null>(null)
   const [savingOpen, setSavingOpen] = useState(false)
   const [published, setPublished] = useState(false)
@@ -86,8 +86,8 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
     end: endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 }),
   })
 
-  function goPrev() { setCurrentDate(d => view === "month" ? subMonths(d, 1) : subWeeks(d, 1)) }
-  function goNext() { setCurrentDate(d => view === "month" ? addMonths(d, 1) : addWeeks(d, 1)) }
+  function goPrev() { setCurrentDate(d => view === "month" ? subMonths(d, 1) : view === "day" ? subDays(d, 1) : subWeeks(d, 1)) }
+  function goNext() { setCurrentDate(d => view === "month" ? addMonths(d, 1) : view === "day" ? addDays(d, 1) : addWeeks(d, 1)) }
 
   // Soll/Ist-Stunden & Minijob-Verdienstgrenze (603 €/Monat, Stand 2026)
   const MINIJOB_LIMIT_EUR = 603
@@ -356,13 +356,15 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
   const esc = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 
   function rangeLabel(): string {
-    return view === "month"
-      ? format(currentDate, "LLLL yyyy", { locale: de })
-      : `${format(weekDays[0].date, "dd.MM.")}–${format(weekDays[6].date, "dd.MM.yyyy")}`
+    if (view === "month") return format(currentDate, "LLLL yyyy", { locale: de })
+    if (view === "day") return format(currentDate, "dd.MM.yyyy")
+    return `${format(weekDays[0].date, "dd.MM.")}–${format(weekDays[6].date, "dd.MM.yyyy")}`
   }
 
   function shiftsInRange(): Shift[] {
-    const days = view === "month" ? monthDays.filter(d => isSameMonth(d, currentDate)) : weekDays.map(d => d.date)
+    const days = view === "month" ? monthDays.filter(d => isSameMonth(d, currentDate))
+      : view === "day" ? [currentDate]
+      : weekDays.map(d => d.date)
     const set = new Set(days.map(d => formatDate(d)))
     return shifts.filter(s => s.employee_id && set.has(s.date))
       .sort((a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time))
@@ -436,13 +438,67 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
     setShifts(prev => prev.map(s => s.id === shift.id ? { ...s, status: next } : s))
   }
 
+  // Ein-Tages-Agenda nach Station gruppiert — von der mobilen Wochenansicht
+  // und der eigenständigen Tagesansicht gemeinsam genutzt.
+  function renderDayAgenda(dateStr: string) {
+    return (
+      <div className="space-y-3">
+        {groups.map(g => {
+          const min = minStaffing[g.station] ?? 0
+          const memberIds = new Set(g.members.map(m => m.id))
+          const dayShifts = shifts.filter(s => s.employee_id && memberIds.has(s.employee_id) && s.date === dateStr && s.status !== "absent")
+          const cnt = new Set(dayShifts.map(s => s.employee_id)).size
+          const under = min > 0 && cnt < min
+          return (
+            <div key={g.station} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className={cn("flex items-center justify-between px-4 py-2 border-b", under ? "bg-red-50 border-red-100" : "bg-gray-50 border-gray-100")}>
+                <span className="text-xs font-bold uppercase tracking-wide text-gray-600">{g.station}</span>
+                <span className={cn("text-xs font-semibold tabular-nums", under ? "text-red-600" : "text-gray-400")}>
+                  {under ? `${cnt}/${min} ⚠ unterbesetzt` : `${cnt}${min > 0 ? `/${min}` : ""}`}
+                </span>
+              </div>
+              {dayShifts.length === 0 ? (
+                <p className="px-4 py-3 text-xs text-gray-300">Keine Schicht</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {dayShifts.sort((a, b) => a.start_time.localeCompare(b.start_time)).map(s => {
+                    const emp = employees.find(e => e.id === s.employee_id)
+                    return (
+                      <div key={s.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                        <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: emp?.color ?? "#6366f1" }}>
+                          {emp?.name?.split(" ").map(n => n[0]).join("").slice(0,2)}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{emp?.name ?? "—"}</p>
+                          <p className="text-xs text-gray-400 tabular-nums">{s.start_time.slice(0,5)}–{s.end_time.slice(0,5)} · {calcHours(s.start_time, s.end_time)} h</p>
+                        </div>
+                        <span className={cn("text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0", s.status === "confirmed" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500")}>
+                          {s.status === "confirmed" ? "Best." : "Geplant"}
+                        </span>
+                        <button onClick={() => deleteShift(s.id)} className="p-1.5 text-gray-300 hover:text-red-500 flex-shrink-0" title="Löschen"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+        <button onClick={() => setOpenForm({ date: dateStr, start: "08:00", end: "16:00", position: "Service" })}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-gray-300 text-sm text-gray-500 hover:bg-gray-50 transition">
+          <Plus className="w-4 h-4" /> Schicht für diesen Tag hinzufügen
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="min-w-0">
       {/* Header toolbar */}
       <div className="mb-4 flex min-w-0 flex-col gap-2.5 lg:flex-row lg:items-start lg:justify-between">
         <div className="grid w-full min-w-0 grid-cols-[auto_auto_auto_minmax(0,1fr)] items-center gap-1.5 sm:flex sm:w-auto sm:gap-2">
           <button onClick={goPrev}
-            aria-label={view === "month" ? "Vorheriger Monat" : "Vorherige Woche"}
+            aria-label={view === "month" ? "Vorheriger Monat" : view === "day" ? "Vorheriger Tag" : "Vorherige Woche"}
             className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500 transition">
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -451,13 +507,15 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
             Heute
           </button>
           <button onClick={goNext}
-            aria-label={view === "month" ? "Nächster Monat" : "Nächste Woche"}
+            aria-label={view === "month" ? "Nächster Monat" : view === "day" ? "Nächster Tag" : "Nächste Woche"}
             className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500 transition">
             <ChevronRight className="w-4 h-4" />
           </button>
           <span className="min-w-0 truncate text-right text-sm font-medium capitalize text-gray-600 sm:ml-2 sm:text-left">
             {view === "month"
               ? format(currentDate, "MMMM yyyy", { locale: de })
+              : view === "day"
+              ? format(currentDate, "EEEE, d. MMMM yyyy", { locale: de })
               : `${weekDays[0].label.split(" ")[1]} – ${weekDays[6].label.split(" ")[1]}`}
           </span>
         </div>
@@ -489,12 +547,12 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
             className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:px-3">
             <Trash2 className="w-3.5 h-3.5" /> Plan leeren
           </button>
-          <div className="col-span-2 grid min-w-0 grid-cols-2 overflow-hidden rounded-lg border border-gray-200 sm:col-auto sm:flex">
-            {(["week","month"] as const).map(v => (
+          <div className="col-span-2 grid min-w-0 grid-cols-3 overflow-hidden rounded-lg border border-gray-200 sm:col-auto sm:flex">
+            {(["day","week","month"] as const).map(v => (
               <button key={v} onClick={() => setView(v)}
                 className={cn("min-w-0 px-3 py-1.5 text-xs font-medium transition",
                   view === v ? "bg-brand-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50")}>
-                {v === "week" ? "Woche" : "Monat"}
+                {v === "day" ? "Tag" : v === "week" ? "Woche" : "Monat"}
               </button>
             ))}
           </div>
@@ -549,14 +607,23 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
         </div>
       )}
 
+      {/* Day view */}
+      {view === "day" && (
+        <div className="max-w-2xl">{renderDayAgenda(formatDate(currentDate))}</div>
+      )}
+
       {/* Month grid */}
       {view === "month" && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="grid grid-cols-7 border-b border-gray-100">
+          {/* Wochentags-Kopfzeile bleibt außerhalb des Scrollbereichs — kein
+              position:sticky nötig, das hier ohnehin wirkungslos wäre, da diese
+              Karte selbst nicht scrollt (Seiten-Scroll liegt außerhalb ihrer Box). */}
+          <div className="grid grid-cols-7 border-b border-gray-100 bg-white">
             {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(d => (
               <div key={d} className="px-2 py-2.5 text-xs font-semibold text-gray-400 text-center uppercase tracking-wide">{d}</div>
             ))}
           </div>
+          <div className="max-h-[68vh] overflow-y-auto">
           <div className="grid grid-cols-7">
             {monthDays.map(day => {
               const dateStr = formatDate(day)
@@ -594,6 +661,7 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
               )
             })}
           </div>
+          </div>
         </div>
       )}
 
@@ -602,7 +670,7 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
       <>
       {/* Mobil: Tag-für-Tag statt breiter Matrix */}
       <div className="md:hidden">
-        <div className="mb-3 grid min-w-0 grid-cols-7 gap-1 pb-2">
+        <div className="sticky top-0 z-20 mb-3 grid min-w-0 grid-cols-7 gap-1 bg-background pb-2 pt-1">
           {weekDays.map((day, idx) => (
             <button key={day.label} onClick={() => setMobileDay(idx)}
               className={cn("min-w-0 rounded-lg border px-1 py-2 text-center transition",
@@ -613,69 +681,22 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
             </button>
           ))}
         </div>
-        {(() => {
-          const ds = formatDate(weekDays[mobileDay].date)
-          return (
-            <div className="space-y-3">
-              {groups.map(g => {
-                const min = minStaffing[g.station] ?? 0
-                const memberIds = new Set(g.members.map(m => m.id))
-                const dayShifts = shifts.filter(s => s.employee_id && memberIds.has(s.employee_id) && s.date === ds && s.status !== "absent")
-                const cnt = new Set(dayShifts.map(s => s.employee_id)).size
-                const under = min > 0 && cnt < min
-                return (
-                  <div key={g.station} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className={cn("flex items-center justify-between px-4 py-2 border-b", under ? "bg-red-50 border-red-100" : "bg-gray-50 border-gray-100")}>
-                      <span className="text-xs font-bold uppercase tracking-wide text-gray-600">{g.station}</span>
-                      <span className={cn("text-xs font-semibold tabular-nums", under ? "text-red-600" : "text-gray-400")}>
-                        {under ? `${cnt}/${min} ⚠ unterbesetzt` : `${cnt}${min > 0 ? `/${min}` : ""}`}
-                      </span>
-                    </div>
-                    {dayShifts.length === 0 ? (
-                      <p className="px-4 py-3 text-xs text-gray-300">Keine Schicht</p>
-                    ) : (
-                      <div className="divide-y divide-gray-50">
-                        {dayShifts.sort((a, b) => a.start_time.localeCompare(b.start_time)).map(s => {
-                          const emp = employees.find(e => e.id === s.employee_id)
-                          return (
-                            <div key={s.id} className="flex items-center gap-2.5 px-4 py-2.5">
-                              <span className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: emp?.color ?? "#6366f1" }}>
-                                {emp?.name?.split(" ").map(n => n[0]).join("").slice(0,2)}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">{emp?.name ?? "—"}</p>
-                                <p className="text-xs text-gray-400 tabular-nums">{s.start_time.slice(0,5)}–{s.end_time.slice(0,5)} · {calcHours(s.start_time, s.end_time)} h</p>
-                              </div>
-                              <span className={cn("text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0", s.status === "confirmed" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500")}>
-                                {s.status === "confirmed" ? "Best." : "Geplant"}
-                              </span>
-                              <button onClick={() => deleteShift(s.id)} className="p-1.5 text-gray-300 hover:text-red-500 flex-shrink-0" title="Löschen"><Trash2 className="w-3.5 h-3.5" /></button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              <button onClick={() => setOpenForm({ date: ds, start: "08:00", end: "16:00", position: "Service" })}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-gray-300 text-sm text-gray-500 hover:bg-gray-50 transition">
-                <Plus className="w-4 h-4" /> Schicht für diesen Tag hinzufügen
-              </button>
-            </div>
-          )
-        })()}
+        {renderDayAgenda(formatDate(weekDays[mobileDay].date))}
       </div>
 
       {/* Desktop: volle Wochenmatrix */}
       <div className="hidden md:block bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* max-h + overflow-y-auto macht diesen Bereich selbst zum Scroll-Container,
+            damit die sticky Kopfzeile/Mitarbeiter-Spalte tatsächlich greift — ohne
+            eigenen vertikalen Scroll bliebe position:sticky hier wirkungslos, weil
+            die Seite außerhalb dieser Box scrollt. */}
+        <div className="max-h-[68vh] overflow-auto">
           <table className="w-full border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="w-44 text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide sticky left-0 z-20 bg-white">Mitarbeiter</th>
+                <th className="w-44 text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide sticky left-0 top-0 z-30 bg-white border-b border-gray-100">Mitarbeiter</th>
                 {weekDays.map(day => (
-                  <th key={day.label} className={cn("px-2 py-3 text-xs font-semibold text-center min-w-[120px]",
+                  <th key={day.label} className={cn("sticky top-0 z-20 bg-white px-2 py-3 text-xs font-semibold text-center min-w-[120px] border-b border-gray-100",
                     day.isToday ? "text-brand-600" : "text-gray-500")}>
                     <div>{day.label.split(" ")[0]}</div>
                     <div className={cn("text-base font-bold mt-0.5", day.isToday ? "text-brand-600" : "text-gray-800")}>
