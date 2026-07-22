@@ -14,6 +14,11 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+  const [resetEmail, setResetEmail] = useState("")
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMsg, setResetMsg] = useState<string | null>(null)
+  const [resetError, setResetError] = useState<string | null>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
 
   async function handleLogin(e: React.FormEvent) {
@@ -38,6 +43,26 @@ export default function LoginPage() {
     router.refresh()
   }
 
+  async function handlePasswordReset(e: React.FormEvent) {
+    e.preventDefault()
+    if (!resetEmail) return
+    setResetLoading(true)
+    setResetMsg(null)
+    setResetError(null)
+
+    const supabase = createClient()
+    const redirectTo = `${window.location.origin}/portal/profil`
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, { redirectTo })
+
+    if (error) {
+      setResetError("Anforderung fehlgeschlagen: " + error.message)
+    } else {
+      setResetMsg("Ein Link zum Zurücksetzen deines Passworts wurde an deine E-Mail gesendet.")
+      setResetEmail("")
+    }
+    setResetLoading(false)
+  }
+
   return (
     <div className="w-full max-w-sm px-6">
       <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
@@ -57,7 +82,16 @@ export default function LoginPage() {
               className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition text-sm" />
           </div>
           <div>
-            <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1.5">Passwort</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="login-password" className="block text-sm font-medium text-gray-700">Passwort</label>
+              <button
+                type="button"
+                onClick={() => { setResetModalOpen(true); setResetMsg(null); setResetError(null) }}
+                className="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline"
+              >
+                Passwort vergessen?
+              </button>
+            </div>
             <div className="relative">
               <input ref={passwordRef} id="login-password" name="password" type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required
                 autoComplete="current-password" aria-invalid={error ? true : undefined} aria-describedby={error ? "login-error" : undefined}
@@ -77,6 +111,50 @@ export default function LoginPage() {
             <span aria-live="polite">{loading ? "Anmeldung läuft…" : "Anmelden"}</span>
           </button>
         </form>
+
+        {/* Passwort vergessen Modal */}
+        {resetModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900 mb-2">Passwort zurücksetzen</h2>
+              <p className="text-xs text-gray-500 mb-4">
+                Gib deine E-Mail-Adresse ein. Du erhältst einen Link, um dein Passwort neu festzulegen.
+              </p>
+              <form onSubmit={handlePasswordReset} className="space-y-4">
+                <div>
+                  <label htmlFor="reset-email" className="block text-xs font-semibold text-gray-700 mb-1">E-Mail-Adresse</label>
+                  <input
+                    id="reset-email"
+                    type="email"
+                    value={resetEmail}
+                    onChange={e => setResetEmail(e.target.value)}
+                    required
+                    placeholder="deine-email@browns.at"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                  />
+                </div>
+                {resetError && <p className="text-xs text-red-700 bg-red-50 p-2 rounded">{resetError}</p>}
+                {resetMsg && <p className="text-xs text-emerald-800 bg-emerald-50 p-2 rounded">{resetMsg}</p>}
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setResetModalOpen(false)}
+                    className="flex-1 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="flex-1 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold disabled:opacity-50"
+                  >
+                    {resetLoading ? "Senden…" : "Link anfordern"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
       <p className="text-center text-xs text-white/90 mt-5">{DEVELOPER_LINE}</p>
     </div>

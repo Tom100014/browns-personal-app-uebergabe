@@ -12,6 +12,7 @@ import {
 } from "@/lib/security-core"
 import { findAuthUserByEmail, findEmployeeIdentityConflict } from "@/lib/security-access"
 import { enforceRateLimit, jsonNoStore, rejectCrossOriginMutation, writeSecurityAudit } from "@/lib/security"
+import { sendEmail } from "@/lib/email"
 
 export const runtime = "nodejs"
 
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const [{ data: employee, error: employeeLookupError }, { data: primaryAdmin, error: settingsError }] = await Promise.all([
-    admin.from("employees").select("id,email,role,auth_user_id").eq("id", employeeId).maybeSingle(),
+    admin.from("employees").select("id,name,email,role,auth_user_id").eq("id", employeeId).maybeSingle(),
     admin.from("settings").select("value").eq("key", "primary_admin_employee_id").maybeSingle(),
   ])
   if (employeeLookupError || settingsError) return jsonNoStore({ error: "Zugang konnte nicht geprüft werden" }, { status: 500 })
@@ -127,6 +128,11 @@ export async function POST(request: NextRequest) {
     if (createdUser) await admin.auth.admin.deleteUser(authUser.id)
     return jsonNoStore({ error: "Einladung konnte nicht mit dem Mitarbeiter verknüpft werden" }, { status: 500 })
   }
+
+  // Sende ausführliche E-Mail-Einleitung an den Mitarbeiter per Resend
+  const inviteText = `Hallo ${employee.name || "Mitarbeiter"},\n\nhier ist dein Zugang zur Browns Personal App:\n${redirectTo}\n\nE-Mail (Login): ${email}\n\nAnleitung zum Einrichten:\n1. Öffne die App auf deinem Smartphone\n2. Auf iPhone: Teilen -> "Zum Home-Bildschirm"\n3. Auf Android: Menü -> "App installieren"\n4. Erlaube Push-Benachrichtigungen für Schicht-Erinnerungen.\n5. Passwort kannst du in der App unter "Mein Profil" oder auf der Login-Seite über "Passwort vergessen?" jederzeit verwalten.`
+
+  await sendEmail([email], "Willkommen bei Browns Personal App — Dein Zugang", inviteText, redirectTo)
 
   await writeSecurityAudit(staff, "Einladung verarbeitet", { targetEmployeeId: employee.id, reinvited })
   return jsonNoStore({ ok: true, reinvited })
