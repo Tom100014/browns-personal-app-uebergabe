@@ -128,7 +128,7 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
       })
       const json = await res.json()
       if (res.ok) {
-        setInviteMsg(`Zugang für ${accessFor.name} aktiv: ${accessEmail} kann sich sofort einloggen.`)
+        setInviteMsg(`Zugang für ${accessFor.name} aktiv: Passwort wurde gespeichert und eine E-Mail mit den Zugangsdaten & Einrichtungsanleitung an ${accessEmail} gesendet.`)
         setEmployees(prev => prev.map(e => e.id === accessFor.id ? { ...e, email: accessEmail, auth_user_id: "active" } : e))
         setAccessFor(null)
       } else {

@@ -3,6 +3,7 @@ import { createClient as createAdminClient, type User } from "@supabase/supabase
 import { getCurrentStaff } from "@/lib/staff"
 import {
   canManageAccessTarget,
+  getTrustedAppOrigin,
   isProtectedOwnerTarget,
   isUuid,
   isValidEmail,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/security-core"
 import { findAuthUserByEmail, findEmployeeIdentityConflict } from "@/lib/security-access"
 import { enforceRateLimit, jsonNoStore, rejectCrossOriginMutation, writeSecurityAudit } from "@/lib/security"
+import { sendEmail } from "@/lib/email"
 
 export const runtime = "nodejs"
 
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
   const [{ data: employee, error: employeeLookupError }, { data: primaryAdmin, error: settingsError }] = await Promise.all([
-    admin.from("employees").select("id,email,role,auth_user_id").eq("id", employeeId).maybeSingle(),
+    admin.from("employees").select("id,name,email,role,auth_user_id").eq("id", employeeId).maybeSingle(),
     admin.from("settings").select("value").eq("key", "primary_admin_employee_id").maybeSingle(),
   ])
   if (employeeLookupError || settingsError) return jsonNoStore({ error: "Zugang konnte nicht geprüft werden" }, { status: 500 })
@@ -119,6 +121,13 @@ export async function POST(request: NextRequest) {
     if (createdUser) await admin.auth.admin.deleteUser(authUser.id)
     return jsonNoStore({ error: "Zugang konnte nicht mit dem Mitarbeiter verknüpft werden" }, { status: 500 })
   }
+
+  // Sende E-Mail-Bestätigung & Anleitung an den Mitarbeiter per Resend
+  const appOrigin = getTrustedAppOrigin(request.nextUrl.origin)
+  const loginUrl = `${appOrigin}/login`
+  const mailText = `Hallo ${employee.name || "Mitarbeiter"},\n\ndein Zugang zur Browns Personal App wurde soeben eingerichtet / dein Passwort neu gesetzt.\n\nLogin-Link: ${loginUrl}\nE-Mail (Login): ${email}\nPasswort: ${password}\n\nAnleitung zum Einrichten:\n1. Öffne den Link auf deinem Smartphone (${loginUrl})\n2. Auf iPhone: Teilen -> "Zum Home-Bildschirm"\n3. Auf Android: Menü -> "App installieren"\n4. Erlaube Push-Benachrichtigungen für Schicht-Erinnerungen.\n5. Passwort kannst du in der App unter "Mein Profil" oder auf der Login-Seite über "Passwort vergessen?" jederzeit zurücksetzen.`
+
+  await sendEmail([email], "Dein Zugang zur Browns Personal App wurde eingerichtet", mailText, loginUrl)
 
   await writeSecurityAudit(staff, "Zugang verknüpft", { targetEmployeeId: employee.id })
   return jsonNoStore({ ok: true })
