@@ -6,6 +6,7 @@ import { entryHours, shiftHours, formatHours, formatEuro } from "@/lib/hours"
 import { formatDayLabel } from "@/lib/coverage"
 import LiveRefresh from "@/components/realtime/LiveRefresh"
 import RingProgress from "@/components/charts/RingProgress"
+import Logo from "@/components/brand/Logo"
 import { format, startOfWeek, endOfWeek, addDays, startOfMonth, endOfMonth } from "date-fns"
 import { de } from "date-fns/locale"
 import type { Shift } from "@/types"
@@ -143,36 +144,54 @@ export default async function PortalHome() {
       </header>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <section className="space-y-5">
-          <div className="flex items-center gap-4">
-            <Link href="/portal/profil" className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-4 border-white text-2xl font-black text-white shadow-card-lg sm:h-24 sm:w-24"
-              style={{ backgroundColor: me.color || "#f26a21" }}>
-              {initials(me.name)}
-            </Link>
-            <div className="min-w-0">
-              <p className="text-xs font-extrabold uppercase text-brand-600">{greeting}</p>
-              <h1 className="truncate text-[34px] leading-tight text-charcoal sm:text-5xl">
-                Hallo {firstName}
-              </h1>
-              <p className="mt-1 text-sm capitalize text-muted-foreground">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })}</p>
+        <section className="space-y-6">
+          {/* World-Class Hero Greeting Header mit Original Browns Logo */}
+          <div className="glass-card rounded-3xl p-6 sm:p-8 flex items-center justify-between gap-6 relative overflow-hidden">
+            <div className="absolute -right-16 -top-16 w-56 h-56 bg-brand-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex items-center gap-5 relative z-10 min-w-0">
+              <Logo className="h-20 w-20 sm:h-24 sm:w-24 shadow-2xl ring-4 ring-white" />
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-700 text-xs font-bold uppercase tracking-wider mb-1.5">
+                  <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+                  {greeting}, {firstName}!
+                </div>
+                <h1 className="truncate text-3xl font-extrabold text-charcoal sm:text-4xl tracking-tight">
+                  Brown's Personal App
+                </h1>
+                <p className="mt-0.5 text-xs font-medium text-gray-500 capitalize">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })}</p>
+              </div>
+            </div>
+            <div className="hidden sm:flex flex-col items-end gap-2 text-right relative z-10">
+              <Link href="/portal/profil" className="spring-press flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-white/80 border border-gray-200/80 shadow-sm hover:shadow-md">
+                <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold text-white shadow-sm" style={{ backgroundColor: me.color || "#c74806" }}>
+                  {initials(me.name)}
+                </span>
+                <span className="text-xs font-bold text-charcoal">{firstName}</span>
+              </Link>
+              <span className="px-3 py-1 rounded-xl bg-emerald-500/15 text-emerald-800 text-xs font-extrabold border border-emerald-500/30">
+                {statusLabel}
+              </span>
             </div>
           </div>
 
+          {/* Interactive Metric Cards Grid */}
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
             {tiles.map(({ href, icon: Icon, title, value, tone, badge }) => (
               <Link key={title} href={href}
-                className={`card-3d group relative min-h-[128px] overflow-hidden rounded-[1.35rem] p-4 transition hover:-translate-y-0.5 hover:shadow-float sm:min-h-[150px] ${tone}`}>
+                className={`spring-press group relative min-h-[135px] overflow-hidden rounded-3xl p-5 shadow-sm transition-all hover:shadow-md border border-white/40 ${tone}`}>
                 <div className="flex items-start justify-between gap-3">
-                  <Icon className="h-8 w-8 text-white/88 sm:h-9 sm:w-9" />
+                  <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-md">
+                    <Icon className="h-6 w-6 text-white" />
+                  </div>
                   {typeof badge === "number" && badge > 0 && (
-                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-2 text-xs font-black text-[#b74f4f] shadow-card">{badge}</span>
+                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-2 text-xs font-black text-red-600 shadow-md">{badge}</span>
                   )}
                 </div>
-                <div className="absolute inset-x-4 bottom-4">
-                  <p className="text-sm font-extrabold leading-tight">{title}</p>
-                  <p className="mt-1 line-clamp-2 text-sm leading-snug text-white/88">{value}</p>
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-white/80 uppercase tracking-wide">{title}</p>
+                  <p className="mt-1 line-clamp-1 text-base font-extrabold text-white tracking-tight">{value}</p>
                 </div>
-                <span className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/10 transition group-hover:scale-125" />
+                <span className="pointer-events-none absolute -right-6 -bottom-6 h-20 w-20 rounded-full bg-white/10 transition-transform group-hover:scale-150" />
               </Link>
             ))}
           </div>

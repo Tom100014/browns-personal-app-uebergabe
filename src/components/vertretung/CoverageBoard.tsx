@@ -112,9 +112,9 @@ export default function CoverageBoard({ requests: initial, employees }: Props) {
         </div>
 
         {open.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-xl py-10 text-center">
-            <UserCheck className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">Alle Schichten sind besetzt. Keine offenen Vertretungen.</p>
+          <div className="glass-card rounded-2xl py-10 text-center">
+            <UserCheck className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-500">Alle Schichten sind besetzt. Keine offenen Vertretungen.</p>
           </div>
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
@@ -123,14 +123,14 @@ export default function CoverageBoard({ requests: initial, employees }: Props) {
               const suggested = empById(req.suggested_employee_id)
               const offers = req.offers ?? []
               return (
-                <div key={req.id} className="bg-white border border-orange-200 rounded-xl p-4 sm:p-5">
+                <div key={req.id} className="glass-card rounded-2xl p-5 shadow-sm transition-all hover:shadow-md">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-                        <LifeBuoy className="w-4.5 h-4.5 text-orange-600" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
+                        <LifeBuoy className="w-5 h-5 text-orange-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{req.position}</p>
+                        <p className="text-sm font-extrabold text-charcoal">{req.position}</p>
                         <p className="text-xs text-gray-500">
                           {orig ? `${orig.name} fällt aus` : "Schicht unbesetzt"}
                           {req.reason === "krank" ? " (krank)" : ""}
@@ -138,55 +138,55 @@ export default function CoverageBoard({ requests: initial, employees }: Props) {
                       </div>
                     </div>
                     <button onClick={() => dismiss(req)} disabled={busy === req.id}
-                      className="text-gray-300 hover:text-gray-500 transition" title="Verwerfen">
+                      className="text-gray-400 hover:text-gray-600 transition p-1" title="Verwerfen">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs text-gray-600">
-                    <span className="inline-flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5 text-gray-400" />{formatDayLabel(req.date)}</span>
-                    <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-gray-400" />{hhmm(req.start_time)}–{hhmm(req.end_time)} Uhr</span>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs font-semibold text-gray-600">
+                    <span className="inline-flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5 text-gray-400" />{formatDayLabel(req.date)}</span>
+                    <span className="inline-flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-gray-400" />{hhmm(req.start_time)}–{hhmm(req.end_time)} Uhr</span>
                   </div>
 
                   {/* Vorschlag */}
                   {suggested && (
-                    <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-brand-50 border border-brand-100 px-3 py-2">
-                      <span className="inline-flex items-center gap-1.5 text-xs text-brand-800">
-                        <Sparkles className="w-3.5 h-3.5 text-brand-500" />
-                        Vorschlag: <span className="font-semibold">{suggested.name}</span>
+                    <div className="mt-3.5 flex items-center justify-between gap-2 rounded-xl bg-brand-500/10 border border-brand-500/20 px-3.5 py-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-800">
+                        <Sparkles className="w-3.5 h-3.5 text-brand-600" />
+                        Vorschlag: <span className="font-bold">{suggested.name}</span>
                       </span>
                       <button onClick={() => assign(req, suggested.id)} disabled={busy === req.id}
-                        className="text-xs font-medium px-2.5 py-1 rounded-md bg-brand-600 hover:bg-brand-700 text-white transition disabled:opacity-50">
+                        className="spring-press text-xs font-bold px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition disabled:opacity-50">
                         Zuweisen
                       </button>
                     </div>
                   )}
 
                   {/* Zusagen aus dem Chat */}
-                  <div className="mt-3">
-                    <p className="text-xs font-medium text-gray-500 mb-1.5">
+                  <div className="mt-3.5">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                       Zusagen aus dem Team ({offers.length})
                     </p>
                     {offers.length === 0 ? (
                       <p className="text-xs text-gray-400">Noch keine Rückmeldung. Anfrage läuft im Team-Chat.</p>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {offers.map(o => {
                           const e = empById(o.employee_id)
                           return (
-                            <div key={o.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 px-2.5 py-1.5">
-                              <span className="inline-flex items-center gap-2 text-sm text-gray-700">
-                                <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                                  style={{ backgroundColor: e?.color ?? "#6366f1" }}>
+                            <div key={o.id} className="flex items-center justify-between gap-2 rounded-xl bg-white/70 border border-gray-200/80 px-3 py-2">
+                              <span className="inline-flex items-center gap-2 text-xs font-semibold text-charcoal">
+                                <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm"
+                                  style={{ backgroundColor: e?.color ?? "#c74806" }}>
                                   {e?.name?.split(" ").map(n => n[0]).join("").slice(0,2)}
                                 </span>
                                 {e?.name ?? "—"}
                                 {e?.position === req.position && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">passt</span>
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700">passt</span>
                                 )}
                               </span>
                               <button onClick={() => assign(req, o.employee_id)} disabled={busy === req.id}
-                                className="text-xs font-medium px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50">
+                                className="spring-press text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition disabled:opacity-50">
                                 Zuweisen
                               </button>
                             </div>

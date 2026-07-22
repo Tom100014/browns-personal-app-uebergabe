@@ -196,7 +196,35 @@
       0 16px 34px -22px rgb(47 44 41 / 0.42),
       0 34px 82px -50px rgb(47 44 41 / 0.50);
   }
+
+  /* Impeccable & Apple Fluid Glassmorphism Utilities */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(231, 218, 201, 0.65);
+    box-shadow: 0 10px 30px -10px rgba(47, 44, 41, 0.08), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  }
+
+  .glass-nav {
+    background: rgba(248, 241, 231, 0.85);
+    backdrop-filter: blur(20px) saturate(190%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%);
+    border-top: 1px solid rgba(231, 218, 201, 0.75);
+  }
+
+  .spring-press {
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  }
+  .spring-press:active {
+    transform: scale(0.96);
+  }
+
+  .glow-brand {
+    box-shadow: 0 0 24px rgba(199, 72, 6, 0.35);
+  }
 }
+
 
 @media (prefers-reduced-motion: reduce) {
   *,

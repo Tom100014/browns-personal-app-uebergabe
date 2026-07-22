@@ -1,35 +1,50 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CalendarDays } from "lucide-react"
+import { CalendarDays, Clock } from "lucide-react"
+import Logo from "@/components/brand/Logo"
 
 /**
- * Feststehende Kopfleiste fuer jeden Bereich:
- * Titel + Untertitel links, aktuelles Datum (de) rechts.
- * Bleibt beim Scrollen sichtbar, damit Datum und Bereich immer klar sind.
+ * Feststehende Kopfleiste mit Original Browns Logo, Live-Uhrzeit & Glassmorphism.
  */
 export default function PageHeader({ title, subtitle, actions }: { title: React.ReactNode; subtitle?: React.ReactNode; actions?: React.ReactNode }) {
   const [today, setToday] = useState("")
+  const [time, setTime] = useState("")
+
   useEffect(() => {
-    const fmt = () => new Date().toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric", timeZone: "Europe/Berlin" })
-    setToday(fmt())
-    const t = setInterval(() => setToday(fmt()), 60_000)
+    const updateTime = () => {
+      const now = new Date()
+      setToday(now.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "Europe/Berlin" }))
+      setTime(now.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" }))
+    }
+    updateTime()
+    const t = setInterval(updateTime, 10_000)
     return () => clearInterval(t)
   }, [])
 
   return (
-    <div className="sticky top-20 lg:top-0 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 mb-5 bg-gray-50/95 backdrop-blur border-b border-gray-200/70">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold text-gray-900 truncate">{title}</h1>
-          {subtitle && <p className="text-gray-500 text-sm mt-0.5 truncate">{subtitle}</p>}
+    <div className="sticky top-[env(safe-area-inset-top)] z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3.5 mb-6 glass-nav shadow-sm">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <Logo className="h-11 w-11" />
+          <div className="min-w-0">
+            <h1 className="text-xl font-extrabold text-charcoal truncate tracking-tight">{title}</h1>
+            {subtitle && <p className="text-xs font-medium text-gray-500 truncate mt-0.5">{subtitle}</p>}
+          </div>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           {actions}
-          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 capitalize whitespace-nowrap">
-            <CalendarDays className="w-3.5 h-3.5 text-brand-600" />
-            {today}
-          </span>
+          <div className="hidden sm:inline-flex items-center gap-2.5 text-xs font-bold text-charcoal bg-white/80 border border-gray-200/80 rounded-xl px-3 py-1.5 shadow-sm">
+            <span className="inline-flex items-center gap-1 text-brand-600">
+              <CalendarDays className="w-3.5 h-3.5" />
+              {today}
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className="inline-flex items-center gap-1 text-charcoal tabular-nums">
+              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+              {time}
+            </span>
+          </div>
         </div>
       </div>
     </div>

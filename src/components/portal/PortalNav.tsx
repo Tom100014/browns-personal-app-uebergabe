@@ -119,20 +119,20 @@ export default function PortalNav({ name, color }: { name: string; color: string
         </button>
       </header>
 
-      {/* Mobile Bottom-Tab-Bar — tägliche Aktionen ohne Menü erreichbar */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-border pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_32px_-24px_rgba(47,44,41,0.45)]"
+      {/* Mobile Bottom-Tab-Bar — tägliche Aktionen mit Apple Fluid Glassmorphism */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 glass-nav pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_28px_-10px_rgba(47,44,41,0.25)]"
         aria-label="Hauptnavigation">
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-5 px-2">
           {tabs.map(({ href, icon: Icon, label, exact }) => {
             const active = exact ? pathname === href : pathname.startsWith(href)
             return (
               <Link key={href} href={href}
                 aria-current={active ? "page" : undefined}
-                className={cn("flex min-h-12 flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold transition",
-                  active ? "text-brand-700" : "text-muted-foreground")}>
-                <span className={cn("flex items-center justify-center w-10 h-7 rounded-full transition",
-                  active && "bg-brand-100 shadow-sm")}>
-                  <Icon aria-hidden="true" className="w-[18px] h-[18px]" />
+                className={cn("spring-press flex min-h-12 flex-col items-center gap-0.5 py-2 text-[11px] font-bold transition-all",
+                  active ? "text-brand-600 scale-[1.04]" : "text-gray-500 hover:text-charcoal")}>
+                <span className={cn("flex items-center justify-center w-11 h-7 rounded-full transition-all duration-200",
+                  active && "bg-brand-500/15 shadow-sm ring-1 ring-brand-500/30 text-brand-600")}>
+                  <Icon aria-hidden="true" className="w-[19px] h-[19px]" />
                 </span>
                 {label}
               </Link>
@@ -140,8 +140,8 @@ export default function PortalNav({ name, color }: { name: string; color: string
           })}
           <button type="button" onClick={event => openDrawer(event.currentTarget)} aria-label="Weitere Navigation öffnen"
             aria-expanded={open} aria-controls="portal-mobile-menu"
-            className="flex min-h-12 flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold text-muted-foreground">
-            <span className="flex items-center justify-center w-10 h-7"><MoreHorizontal aria-hidden="true" className="w-[18px] h-[18px]" /></span>
+            className="spring-press flex min-h-12 flex-col items-center gap-0.5 py-2 text-[11px] font-bold text-gray-500 hover:text-charcoal">
+            <span className="flex items-center justify-center w-11 h-7"><MoreHorizontal aria-hidden="true" className="w-[19px] h-[19px]" /></span>
             Mehr
           </button>
         </div>
@@ -168,7 +168,7 @@ export default function PortalNav({ name, color }: { name: string; color: string
       </dialog>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-64 flex-shrink-0 h-screen sticky top-0 flex-col bg-white border-r border-border">
+      <aside className="hidden lg:flex w-64 flex-shrink-0 h-screen sticky top-0 flex-col glass-card border-r border-border/80">
         <div className="brand-topbar flex justify-center px-4 py-5 border-b border-brand-700/20"><Logo variant="light" className="h-[76px] w-[76px]" /></div>
         <div className="px-2 pt-3">{renderProfile()}</div>
         <nav aria-label="Portalmenü" className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">{renderNavLinks()}</nav>

@@ -86,30 +86,38 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
         </span>
       </div>
 
-      {/* Hero-Stempeluhr (Mitarbeiter-App): eine große, eindeutige Aktion */}
+      {/* Hero-Stempeluhr (Mitarbeiter-App): High-Craft Apple Fluid Dial */}
       {hero && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-card flex flex-col items-center text-center">
+        <div className="glass-card rounded-3xl p-8 flex flex-col items-center text-center relative overflow-hidden transition-all duration-300">
+          <div className="absolute -right-12 -top-12 w-40 h-40 bg-brand-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -left-12 -bottom-12 w-40 h-40 bg-citrus/10 rounded-full blur-2xl pointer-events-none" />
+
           {activeEntry ? (
             <>
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600 mb-3 flex items-center gap-1.5">
-                <span className="relative flex w-2 h-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                  <span className="relative inline-flex rounded-full w-2 h-2 bg-emerald-500" />
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 text-xs font-semibold uppercase tracking-wider mb-4">
+                <span className="relative flex w-2.5 h-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full w-2.5 h-2.5 bg-emerald-600" />
                 </span>
                 Eingestempelt seit {activeEntry.clock_in.slice(0, 5)} Uhr
-              </p>
-              <p className="stat-number text-5xl text-gray-900 mb-1 tabular-nums">
-                {(() => {
-                  const h = calcHours(activeEntry.clock_in, format(new Date(), "HH:mm"))
-                  const hh = Math.floor(h); const mm = Math.round((h - hh) * 60)
-                  return `${hh}:${String(mm).padStart(2, "0")}`
-                })()}
-              </p>
-              <p className="text-xs text-gray-400 mb-5">Stunden gearbeitet</p>
-              <div className="flex items-center gap-2.5">
+              </div>
+
+              {/* Live Hours Timer */}
+              <div className="relative my-2">
+                <p className="stat-number text-6xl font-extrabold text-charcoal tracking-tight tabular-nums">
+                  {(() => {
+                    const h = calcHours(activeEntry.clock_in, format(new Date(), "HH:mm"))
+                    const hh = Math.floor(h); const mm = Math.round((h - hh) * 60)
+                    return `${hh}:${String(mm).padStart(2, "0")}`
+                  })()}
+                </p>
+              </div>
+              <p className="text-xs font-medium text-gray-500 mb-6">Aktuelle Schichtdauer</p>
+
+              <div className="flex items-center gap-3 flex-wrap justify-center">
                 <select value={breakMinutes} onChange={e => setBreakMinutes(Number(e.target.value))}
                   aria-label="Pause"
-                  className="px-3 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30">
+                  className="px-4 py-2.5 rounded-xl bg-white/80 border border-gray-300/80 text-sm font-medium text-charcoal focus:outline-none focus:ring-2 focus:ring-brand-500/30 shadow-sm">
                   <option value={0}>Keine Pause</option>
                   <option value={15}>15 Min Pause</option>
                   <option value={30}>30 Min Pause</option>
@@ -117,23 +125,27 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
                   <option value={60}>1h Pause</option>
                 </select>
                 <button onClick={() => clockOut(activeEntry)} disabled={loading}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition disabled:opacity-50">
-                  <Square className="w-4 h-4" /> Ausstempeln
+                  className="spring-press inline-flex items-center gap-2 px-7 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-semibold text-sm shadow-md transition-all disabled:opacity-50">
+                  <Square className="w-4 h-4 fill-current" /> Ausstempeln
                 </button>
               </div>
             </>
           ) : (
             <>
-              <button onClick={clockIn} disabled={loading || !selectedEmployee}
-                aria-label="Einstempeln"
-                className="w-36 h-36 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-card-lg
-                  flex flex-col items-center justify-center gap-1.5 transition-all
-                  hover:scale-[1.03] active:scale-95 disabled:opacity-50 disabled:hover:scale-100">
-                <Play className="w-9 h-9" fill="currentColor" />
-                <span className="text-sm font-bold tracking-wide">Einstempeln</span>
-              </button>
-              <p className="text-xs text-gray-400 mt-4">
-                {totalToday > 0 ? `Heute bereits ${totalToday.toLocaleString("de-DE")} h erfasst` : "Tippe zum Schichtbeginn"}
+              {/* Fluid Interactive Stamp Button */}
+              <div className="relative my-3">
+                <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl animate-pulse pointer-events-none" />
+                <button onClick={clockIn} disabled={loading || !selectedEmployee}
+                  aria-label="Einstempeln"
+                  className="spring-press relative w-40 h-40 rounded-full bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white shadow-2xl
+                    flex flex-col items-center justify-center gap-2 border-4 border-white/40
+                    hover:shadow-emerald-500/30 disabled:opacity-50">
+                  <Play className="w-10 h-10 ml-1" fill="currentColor" />
+                  <span className="text-sm font-bold tracking-wide uppercase">Einstempeln</span>
+                </button>
+              </div>
+              <p className="text-xs font-medium text-gray-500 mt-4">
+                {totalToday > 0 ? `Heute bereits ${totalToday.toLocaleString("de-DE")} h erfasst` : "Tippe zum Schichtbeginn im Café"}
               </p>
             </>
           )}
