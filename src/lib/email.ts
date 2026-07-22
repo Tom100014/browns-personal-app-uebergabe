@@ -20,7 +20,7 @@ export async function sendEmail(to: string[], subject: string, text: string, url
   const key = process.env.RESEND_API_KEY
   const from = process.env.RESEND_FROM // e.g. "Browns Perso <no-reply@browns.at>"
   if (!key || !from || to.length === 0) return
-  const base = process.env.NEXT_PUBLIC_APP_URL || "https://browns-perso.vercel.app"
+  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"
   const link = url ? new URL(url, base).toString() : base
   try {
     await fetch("https://api.resend.com/emails", {

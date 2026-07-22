@@ -6,9 +6,10 @@ Stand: 2026-07-15
 
 - Code liegt privat auf GitHub: https://github.com/Tom100014/browns-perso-app
 - Supabase Backend, Auth, Datenbank und Storage sind konfiguriert.
-- Production-Keys sind im neuen Vercel-Projekt `browns-perso-live` hinterlegt.
+- Production-Keys sind im Vercel-Projekt hinterlegt.
 - Live-Deployment ist erfolgreich.
-- Live-Link ist oeffentlich erreichbar: https://browns-perso-live.vercel.app/login
+- Live-Link: `https://browns-perso-app.vercel.app/login`
+- Lokal: `http://localhost:3001`
 - Lint hat keine Fehler, nur Warnungen.
 - Admin-Login wurde live getestet.
 - Mitarbeiter-Portal wurde live mit einem temporaeren Test-Mitarbeiter getestet und danach bereinigt.
@@ -17,7 +18,7 @@ Stand: 2026-07-15
 
 Finaler Link:
 
-https://browns-perso-live.vercel.app/login
+https://browns-perso-app.vercel.app/login
 
 Hinweis: Das Deployment wurde aus einer sauberen Deploy-Kopie ohne Git-Metadaten erstellt, weil Vercel den GitHub-User `Tom100014` sonst blockiert hat. Der Code bleibt trotzdem privat und aktuell in GitHub.
 
@@ -53,7 +54,7 @@ Im Admin-Bereich:
 
 Hallo, hier ist der Zugang zur Browns Mitarbeiter-App:
 
-https://browns-perso-live.vercel.app/login
+https://browns-perso-app.vercel.app/login
 
 Bitte mit deiner E-Mail und deinem Passwort anmelden. Auf dem iPhone kannst du die App ueber Teilen -> Zum Home-Bildschirm speichern. Danach bitte Push-Benachrichtigungen erlauben.
 
@@ -61,6 +62,6 @@ Bitte mit deiner E-Mail und deinem Passwort anmelden. Auf dem iPhone kannst du d
 
 Hallo, hier ist der Zugang zur Browns Admin- und Mitarbeiter-App:
 
-https://browns-perso-live.vercel.app/login
+https://browns-perso-app.vercel.app/login
 
 Leitung/Admin kommt nach dem Login automatisch ins Dashboard. Mitarbeiter kommen automatisch in die Mitarbeiter-App.

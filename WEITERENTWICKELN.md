@@ -14,7 +14,7 @@ npm install        # installiert die Pakete (node_modules), dauert 1–2 Min.
 ## 2. Lokal entwickeln
 
 ```bash
-npm run dev        # startet http://localhost:3000
+npm run dev        # startet http://localhost:3001
 ```
 
 Änderungen in `src/` werden sofort im Browser aktualisiert (Hot Reload).

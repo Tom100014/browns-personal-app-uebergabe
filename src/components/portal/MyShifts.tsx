@@ -2,11 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { Clock, CalendarDays, CalendarX, Loader2, Download, Printer, CalendarPlus } from "lucide-react"
-import { createClient } from "@/lib/supabase"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import { formatDayLabel } from "@/lib/coverage"
 import { shiftHours, formatHours } from "@/lib/hours"
-import { cn } from "@/lib/utils"
 import type { Shift } from "@/types"
 
 const hhmm = (t: string) => t.slice(0, 5)
