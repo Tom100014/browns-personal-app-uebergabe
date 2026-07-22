@@ -23,7 +23,7 @@ export async function askLLM(system: string, user: string, maxTokens = 900, mode
     // OpenRouter / OpenAI — Chat Completions
     const base = isOpenRouter ? "https://openrouter.ai/api/v1" : "https://api.openai.com/v1"
     const headers: Record<string, string> = { Authorization: `Bearer ${key}`, "content-type": "application/json" }
-    if (isOpenRouter) { headers["HTTP-Referer"] = "http://localhost:3001"; headers["X-Title"] = "Browns Perso" }
+    if (isOpenRouter) { headers["HTTP-Referer"] = "https://browns-perso.vercel.app"; headers["X-Title"] = "Browns Perso" }
     const res = await fetch(`${base}/chat/completions`, {
       method: "POST",
       headers,
@@ -65,7 +65,7 @@ export async function askLLMVision(system: string, userText: string, imageUrl: s
     }
     const base = isOpenRouter ? "https://openrouter.ai/api/v1" : "https://api.openai.com/v1"
     const headers: Record<string, string> = { Authorization: `Bearer ${key}`, "content-type": "application/json" }
-    if (isOpenRouter) { headers["HTTP-Referer"] = "http://localhost:3001"; headers["X-Title"] = "Browns Perso" }
+    if (isOpenRouter) { headers["HTTP-Referer"] = "https://browns-perso.vercel.app"; headers["X-Title"] = "Browns Perso" }
     const res = await fetch(`${base}/chat/completions`, {
       method: "POST",
       headers,

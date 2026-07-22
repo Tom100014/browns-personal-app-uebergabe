@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LifeBuoy, Check, Sparkles, Clock, CalendarDays, X, UserCheck } from "lucide-react"
+import { LifeBuoy, Check, Sparkles, Clock, CalendarDays, X, UserCheck, AlertTriangle } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import { formatDayLabel } from "@/lib/coverage"
@@ -17,6 +17,7 @@ const hhmm = (t?: string | null) => (t ?? "").slice(0, 5)
 export default function CoverageBoard({ requests: initial, employees }: Props) {
   const [requests, setRequests] = useState<CoverageRequest[]>(initial)
   const [busy, setBusy] = useState<string | null>(null)
+  const [actionError, setActionError] = useState("")
 
   // Live-Sync: neue Vertretungs-Anfragen und Zusagen erscheinen sofort.
   useRealtimeRefresh(["coverage_requests", "coverage_offers"])
@@ -28,47 +29,77 @@ export default function CoverageBoard({ requests: initial, employees }: Props) {
 
   async function assign(req: CoverageRequest, employeeId: string) {
     setBusy(req.id)
+    setActionError("")
     const supabase = createClient()
     const emp = empById(employeeId)
     const orig = empById(req.original_employee_id)
 
-    await supabase.from("shifts").insert({
-      employee_id: employeeId,
-      date: req.date,
-      start_time: req.start_time,
-      end_time: req.end_time,
-      position: req.position,
-      status: "confirmed",
-      note: `Vertretung für ${orig?.name ?? "Kollegen"}`,
-    })
+    try {
+      const { error: shiftError } = await supabase.from("shifts").insert({
+        employee_id: employeeId,
+        date: req.date,
+        start_time: req.start_time,
+        end_time: req.end_time,
+        position: req.position,
+        status: "confirmed",
+        note: `Vertretung für ${orig?.name ?? "Kollegen"}`,
+      })
+      if (shiftError) {
+        setActionError("Die Schicht konnte nicht angelegt werden. Bitte erneut versuchen.")
+        return
+      }
 
-    await supabase.from("coverage_requests")
-      .update({ status: "filled", filled_by: employeeId })
-      .eq("id", req.id)
+      const { error: requestError } = await supabase.from("coverage_requests")
+        .update({ status: "filled", filled_by: employeeId })
+        .eq("id", req.id)
+      if (requestError) {
+        setActionError("Die Schicht wurde angelegt, die Anfrage konnte aber nicht als besetzt markiert werden.")
+        return
+      }
 
-    await supabase.from("messages").insert({
-      employee_id: null,
-      type: "coverage_filled",
-      content: `✅ ${emp?.name ?? "Ein Kollege"} übernimmt die Schicht ${req.position} am ` +
-        `${formatDayLabel(req.date)} ${hhmm(req.start_time)}–${hhmm(req.end_time)} Uhr. Bestätigt durch die Leitung.`,
-      meta: { request_id: req.id },
-      created_at: new Date().toISOString(),
-    })
+      await supabase.from("messages").insert({
+        employee_id: null,
+        type: "coverage_filled",
+        content: `✅ ${emp?.name ?? "Ein Kollege"} übernimmt die Schicht ${req.position} am ` +
+          `${formatDayLabel(req.date)} ${hhmm(req.start_time)}–${hhmm(req.end_time)} Uhr. Bestätigt durch die Leitung.`,
+        meta: { request_id: req.id },
+        created_at: new Date().toISOString(),
+      })
 
-    setRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: "filled", filled_by: employeeId } : r))
-    setBusy(null)
+      setRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: "filled", filled_by: employeeId } : r))
+    } catch {
+      setActionError("Zuweisung fehlgeschlagen. Bitte erneut versuchen.")
+    } finally {
+      setBusy(null)
+    }
   }
 
   async function dismiss(req: CoverageRequest) {
     setBusy(req.id)
+    setActionError("")
     const supabase = createClient()
-    await supabase.from("coverage_requests").update({ status: "cancelled" }).eq("id", req.id)
-    setRequests(prev => prev.filter(r => r.id !== req.id))
-    setBusy(null)
+    try {
+      const { error } = await supabase.from("coverage_requests").update({ status: "cancelled" }).eq("id", req.id)
+      if (error) {
+        setActionError("Verwerfen fehlgeschlagen. Bitte erneut versuchen.")
+        return
+      }
+      setRequests(prev => prev.filter(r => r.id !== req.id))
+    } catch {
+      setActionError("Verwerfen fehlgeschlagen. Bitte erneut versuchen.")
+    } finally {
+      setBusy(null)
+    }
   }
 
   return (
     <div className="space-y-6">
+      {actionError && (
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          {actionError}
+        </div>
+      )}
       {/* Offene Lücken */}
       <section>
         <div className="flex items-center gap-2 mb-3">

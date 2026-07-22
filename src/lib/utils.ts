@@ -27,7 +27,9 @@ export function formatTime(time: string): string {
 export function calcHours(start: string, end: string): number {
   const [sh, sm] = start.split(":").map(Number)
   const [eh, em] = end.split(":").map(Number)
-  return Math.round(((eh * 60 + em - sh * 60 - sm) / 60) * 10) / 10
+  let mins = eh * 60 + em - (sh * 60 + sm)
+  if (mins < 0) mins += 24 * 60 // shift crossed midnight
+  return Math.round((mins / 60) * 10) / 10
 }
 
 export function formatDate(date: Date): string {
