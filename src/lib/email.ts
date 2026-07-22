@@ -16,17 +16,30 @@ function htmlBody(subject: string, text: string, link: string): string {
   </div>`
 }
 
-export async function sendEmail(to: string[], subject: string, text: string, url?: string): Promise<void> {
+export async function sendEmail(to: string[], subject: string, text: string, url?: string): Promise<{ success: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY
   const from = process.env.RESEND_FROM // e.g. "Browns Perso <no-reply@browns.at>"
-  if (!key || !from || to.length === 0) return
+  if (!key || !from || to.length === 0) {
+    return { success: false, error: "Resend ist nicht vollständig konfiguriert (RESEND_API_KEY oder RESEND_FROM fehlt)." }
+  }
   const base = process.env.NEXT_PUBLIC_APP_URL || "https://browns-perso.vercel.app"
   const link = url ? new URL(url, base).toString() : base
   try {
-    await fetch("https://api.resend.com/emails", {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, subject, text, html: htmlBody(subject, text, link) }),
     })
-  } catch { /* best effort — push remains the primary channel */ }
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      const errMsg = errData.message || `Resend HTTP Fehler ${res.status}`
+      console.error("[Resend Email Error]", res.status, errData)
+      return { success: false, error: errMsg }
+    }
+    return { success: true }
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : "Netzwerkfehler beim Aufruf der Resend API."
+    console.error("[Resend Fetch Error]", err)
+    return { success: false, error: errMsg }
+  }
 }

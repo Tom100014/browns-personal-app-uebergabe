@@ -28,7 +28,7 @@ export default function Logo({ className, showText = false }: Props) {
       </div>
       {showText && (
         <div className="flex flex-col">
-          <span className="font-extrabold text-charcoal tracking-tight text-base leading-tight">Brown's</span>
+          <span className="font-extrabold text-charcoal tracking-tight text-base leading-tight">Brown&apos;s</span>
           <span className="text-[11px] font-semibold uppercase tracking-wider text-brand-600">Personal App</span>
         </div>
       )}

@@ -156,7 +156,7 @@ export default async function PortalHome() {
                   {greeting}, {firstName}!
                 </div>
                 <h1 className="truncate text-3xl font-extrabold text-charcoal sm:text-4xl tracking-tight">
-                  Brown's Personal App
+                  Brown&apos;s Personal App
                 </h1>
                 <p className="mt-0.5 text-xs font-medium text-gray-500 capitalize">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })}</p>
               </div>
