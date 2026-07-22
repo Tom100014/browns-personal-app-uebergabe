@@ -75,6 +75,7 @@ export default async function DashboardPage() {
     supabase.from("coverage_requests")
       .select("id,date,position,offers:coverage_offers(id)", { count: "exact" })
       .eq("status", "open")
+      .gte("date", today)
       .order("date")
       .limit(3),
     supabase.from("shifts").select("id,date,position,start_time,end_time", { count: "exact" }).is("employee_id", null).gte("date", today).order("date").limit(3),

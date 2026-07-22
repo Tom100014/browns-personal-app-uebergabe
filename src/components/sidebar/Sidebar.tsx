@@ -10,6 +10,7 @@ import {
 import { createClient } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { useState, useEffect, useRef } from "react"
+import { format } from "date-fns"
 import Logo from "@/components/brand/Logo"
 
 type NavItem = { href: string; icon: typeof Calendar; label: string; badge?: "absences" | "coverage" }
@@ -61,9 +62,10 @@ export default function Sidebar() {
     let active = true
     async function load() {
       const supabase = createClient()
+      const today = format(new Date(), "yyyy-MM-dd")
       const [{ count: abs }, { count: cov }] = await Promise.all([
         supabase.from("absences").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("coverage_requests").select("id", { count: "exact", head: true }).eq("status", "open"),
+        supabase.from("coverage_requests").select("id", { count: "exact", head: true }).eq("status", "open").gte("date", today),
       ])
       if (active) setCounts({ absences: abs ?? 0, coverage: cov ?? 0 })
     }
