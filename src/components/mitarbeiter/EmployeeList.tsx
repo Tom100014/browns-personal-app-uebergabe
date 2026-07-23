@@ -316,10 +316,14 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
                 <tr key={emp.id} className="hover:bg-gray-50/50 transition">
                   <td className="px-5 py-3">
                     <Link href={`/mitarbeiter/${emp.id}`} className="flex items-center gap-3 group/name">
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                        style={{ backgroundColor: emp.color }}>
-                        {emp.name.split(" ").map(n => n[0]).join("").slice(0,2).toUpperCase()}
-                      </div>
+                      {emp.avatar ? (
+                        <img src={emp.avatar} alt={emp.name} className="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                          style={{ backgroundColor: emp.color }}>
+                          {emp.name.split(" ").map(n => n[0]).join("").slice(0,2).toUpperCase()}
+                        </div>
+                      )}
                       <span className="font-medium text-gray-900 group-hover/name:text-brand-700 transition">{emp.name}</span>
                     </Link>
                   </td>

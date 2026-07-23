@@ -151,10 +151,14 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
 
       {/* Header card */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 flex items-center gap-4">
-        <div aria-hidden="true" className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
-          style={{ backgroundColor: employee.color }}>
-          {employee.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-        </div>
+        {employee.avatar ? (
+          <img src={employee.avatar} alt={employee.name} className="w-14 h-14 rounded-full object-cover border-2 border-gray-200 flex-shrink-0 shadow-sm" />
+        ) : (
+          <div aria-hidden="true" className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
+            style={{ backgroundColor: employee.color }}>
+            {employee.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-gray-900 truncate">{employee.name}</h1>
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
