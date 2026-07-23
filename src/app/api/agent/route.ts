@@ -8,6 +8,7 @@ import { buildContract, type ContractData } from "@/lib/contract"
 import { entryHours, shiftHours, formatHours, formatEuro } from "@/lib/hours"
 import { formatKnowledgeDocsForAgent } from "@/lib/knowledge"
 import { enforceRateLimit, jsonNoStore, rejectCrossOriginMutation } from "@/lib/security"
+import { APP_HANDBUCH_SYSTEM_PROMPT } from "@/lib/app-documentation"
 import {
   AI_PRIVACY_SETTINGS_KEY,
   EXTERNAL_LLM_PRIVACY_RULES,
@@ -107,6 +108,8 @@ export async function POST(request: NextRequest) {
   const system = `Du bist der Personal-Planungs-Agent für das Café "Browns Coffee Lounge" in Nürnberg (Innenstadt/Fußgängerzone).
 Plane vorausschauend und praxisnah für Gastronomie. Beachte: bei schönem Wetter im Sommer macht der Außenbereich viel Umsatz → mehr Service/Spüle.
 Antworte kurz, konkret und auf Deutsch. Wenn Daten fehlen, sag es klar. Triff keine arbeitsrechtlichen Zusagen.
+
+${APP_HANDBUCH_SYSTEM_PROMPT}
 
 ${EXTERNAL_LLM_PRIVACY_RULES}
 
