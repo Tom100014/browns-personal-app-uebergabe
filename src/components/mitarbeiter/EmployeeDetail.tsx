@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, type KeyboardEvent } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, Save, Check, IdCard, FileText, Clock, CalendarOff, FileSignature } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
@@ -36,6 +36,7 @@ interface Props {
 type Tab = "stammdaten" | "vertrag" | "dokumente" | "zeiten" | "abwesenheiten"
 
 export default function EmployeeDetail({ employee, documents, timeEntries, absences }: Props) {
+  const router = useRouter()
   const [tab, setTab] = useState<Tab>("stammdaten")
   const [form, setForm] = useState({
     name: employee.name,
@@ -58,6 +59,13 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
 
   function set<K extends keyof typeof form>(k: K, v: string) {
     setForm(f => ({ ...f, [k]: v }))
+  }
+
+  // router.back() (not a push Link) so Next.js restores the list's scroll
+  // position; a push to /mitarbeiter would always reset scroll to top.
+  function goToEmployeeList() {
+    if (window.history.length > 1) router.back()
+    else router.push("/mitarbeiter")
   }
 
   async function save() {
@@ -131,9 +139,13 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
 
   return (
     <div>
-      <Link href="/mitarbeiter" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition">
+      <button
+        type="button"
+        onClick={goToEmployeeList}
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition"
+      >
         <ArrowLeft aria-hidden="true" className="w-4 h-4" /> Alle Mitarbeiter
-      </Link>
+      </button>
 
       {/* Header card */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 flex items-center gap-4">
