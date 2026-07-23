@@ -3,11 +3,35 @@
 export type LLMResult = { text?: string; error?: string }
 
 export async function askLLM(system: string, user: string, maxTokens = 900, modelOverride?: string): Promise<LLMResult> {
-  const key = process.env.LLM_API_KEY
+  const key = process.env.GEMINI_API_KEY || process.env.LLM_API_KEY
   if (!key) return { error: "not_configured" }
+
+  const isGemini = Boolean(process.env.GEMINI_API_KEY) || key.startsWith("AIzaSy")
   const isOpenRouter = key.startsWith("sk-or-")
   const isAnthropic = key.startsWith("sk-ant-")
-  
+
+  if (isGemini) {
+    try {
+      const geminiModel = modelOverride || process.env.LLM_MODEL || "gemini-1.5-flash"
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${key}`
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: [{ role: "user", parts: [{ text: user }] }],
+          generationConfig: { maxOutputTokens: maxTokens }
+        })
+      })
+      const d = await res.json()
+      if (res.ok && d?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return { text: d.candidates[0].content.parts[0].text }
+      }
+    } catch {
+      // Fall through to other providers
+    }
+  }
+
   const candidateModels = isOpenRouter
     ? [modelOverride || process.env.LLM_MODEL || "google/gemma-4-31b-it:free", "google/gemma-4-26b-a4b-it:free", "openai/gpt-4o-mini"]
     : [modelOverride || process.env.LLM_MODEL || (isAnthropic ? "claude-sonnet-4-6" : "gpt-4o-mini")]
@@ -39,7 +63,6 @@ export async function askLLM(system: string, user: string, maxTokens = 900, mode
       if (res.ok && d?.choices?.[0]?.message?.content) {
         return { text: d.choices[0].message.content }
       }
-      // If candidate failed with credit/rate limit error, continue loop to try next free fallback model
     } catch {
       // try next candidate model
     }
