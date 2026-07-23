@@ -516,10 +516,10 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
   return (
     <section
       className={cn(
-        "relative mx-auto flex w-full max-w-4xl min-h-0 flex-col overflow-hidden rounded-[1.35rem] border border-border bg-white shadow-card-lg",
+        "relative mx-auto flex w-full max-w-5xl min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-card-lg",
         isAdmin
-          ? "h-[calc(100dvh-9rem)] min-h-[28rem] max-h-[44rem]"
-          : "h-[calc(100dvh-15rem)] min-h-[24rem] max-h-[44rem] lg:h-[calc(100dvh-7rem)] lg:min-h-[32rem]",
+          ? "h-[calc(100dvh-10rem)] min-h-[30rem] lg:h-[calc(100vh-10rem)]"
+          : "h-[calc(100dvh-14rem)] min-h-[26rem] lg:h-[calc(100vh-10rem)]",
       )}
     >
       <div className="shrink-0 border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-citrus/15 px-4 py-3.5 sm:px-5">

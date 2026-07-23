@@ -29,8 +29,8 @@ export default async function PortalProfil() {
   ]
 
   return (
-    <div className="p-4 sm:p-6 max-w-2xl">
-      <div className="mb-5">
+    <div className="max-w-3xl space-y-5">
+      <div>
         <h1 className="text-xl font-bold text-gray-900">Mein Profil</h1>
         <p className="text-gray-500 text-sm mt-0.5">Deine Daten — Änderungen bitte bei der Leitung melden</p>
       </div>
