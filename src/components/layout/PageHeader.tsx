@@ -23,25 +23,25 @@ export default function PageHeader({ title, subtitle, actions }: { title: React.
   }, [])
 
   return (
-    <div className="sticky top-[env(safe-area-inset-top)] z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3.5 mb-6 glass-nav shadow-sm">
+    <div className="sticky top-[env(safe-area-inset-top)] z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3.5 mb-6 glass-nav shadow-lg border-b border-white/10">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 min-w-0">
-          <Logo className="h-11 w-11" />
+          <Logo className="h-11 w-11 shadow-lg shadow-amber-500/20" />
           <div className="min-w-0">
-            <h1 className="text-xl font-extrabold text-charcoal truncate tracking-tight">{title}</h1>
-            {subtitle && <p className="text-xs font-medium text-gray-500 truncate mt-0.5">{subtitle}</p>}
+            <h1 className="text-xl font-extrabold text-slate-100 truncate tracking-tight">{title}</h1>
+            {subtitle && <p className="text-xs font-medium text-slate-400 truncate mt-0.5">{subtitle}</p>}
           </div>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           {actions}
-          <div className="hidden sm:inline-flex items-center gap-2.5 text-xs font-bold text-charcoal bg-white/80 border border-gray-200/80 rounded-xl px-3 py-1.5 shadow-sm">
-            <span className="inline-flex items-center gap-1 text-brand-600">
+          <div className="hidden sm:inline-flex items-center gap-2.5 text-xs font-bold text-slate-200 bg-slate-800/80 border border-white/10 rounded-xl px-3 py-1.5 shadow-md backdrop-blur-md">
+            <span className="inline-flex items-center gap-1 text-amber-400">
               <CalendarDays className="w-3.5 h-3.5" />
               {today}
             </span>
-            <span className="text-gray-300">|</span>
-            <span className="inline-flex items-center gap-1 text-charcoal tabular-nums">
-              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="text-slate-600">|</span>
+            <span className="inline-flex items-center gap-1 text-slate-100 tabular-nums">
+              <Clock className="w-3.5 h-3.5 text-emerald-400" />
               {time}
             </span>
           </div>

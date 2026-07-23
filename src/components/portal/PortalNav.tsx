@@ -119,8 +119,8 @@ export default function PortalNav({ name, color }: { name: string; color: string
         </button>
       </header>
 
-      {/* Mobile Bottom-Tab-Bar — tägliche Aktionen mit Apple Fluid Glassmorphism */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 glass-nav pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_28px_-10px_rgba(47,44,41,0.25)]"
+      {/* Mobile Bottom-Tab-Bar — tägliche Aktionen mit V2 Dark Glassmorphism */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 glass-nav pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_35px_-10px_rgba(0,0,0,0.8)] border-t border-white/10"
         aria-label="Hauptnavigation">
         <div className="grid grid-cols-5 px-2">
           {tabs.map(({ href, icon: Icon, label, exact }) => {
@@ -128,10 +128,10 @@ export default function PortalNav({ name, color }: { name: string; color: string
             return (
               <Link key={href} href={href}
                 aria-current={active ? "page" : undefined}
-                className={cn("spring-press flex min-h-12 flex-col items-center gap-0.5 py-2 text-[11px] font-bold transition-all",
-                  active ? "text-brand-600 scale-[1.04]" : "text-gray-500 hover:text-charcoal")}>
+                className={cn("spring-press flex min-h-12 flex-col items-center gap-0.5 py-2 text-[11px] font-bold transition-all duration-200",
+                  active ? "text-amber-400 scale-[1.04]" : "text-slate-400 hover:text-slate-100")}>
                 <span className={cn("flex items-center justify-center w-11 h-7 rounded-full transition-all duration-200",
-                  active && "bg-brand-500/15 shadow-sm ring-1 ring-brand-500/30 text-brand-600")}>
+                  active && "bg-amber-500/20 shadow-md ring-1 ring-amber-400/40 text-amber-400")}>
                   <Icon aria-hidden="true" className="w-[19px] h-[19px]" />
                 </span>
                 {label}
@@ -140,7 +140,7 @@ export default function PortalNav({ name, color }: { name: string; color: string
           })}
           <button type="button" onClick={event => openDrawer(event.currentTarget)} aria-label="Weitere Navigation öffnen"
             aria-expanded={open} aria-controls="portal-mobile-menu"
-            className="spring-press flex min-h-12 flex-col items-center gap-0.5 py-2 text-[11px] font-bold text-gray-500 hover:text-charcoal">
+            className="spring-press flex min-h-12 flex-col items-center gap-0.5 py-2 text-[11px] font-bold text-slate-400 hover:text-slate-100">
             <span className="flex items-center justify-center w-11 h-7"><MoreHorizontal aria-hidden="true" className="w-[19px] h-[19px]" /></span>
             Mehr
           </button>
