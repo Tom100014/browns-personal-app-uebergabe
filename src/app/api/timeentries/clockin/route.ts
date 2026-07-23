@@ -96,8 +96,15 @@ export async function PATCH(request: NextRequest) {
   const input = await request.json().catch(() => null)
   const entryId = input?.entryId
   const breakMinutes = input?.breakMinutes ?? 0
+  const shiftRevenueRaw = input?.shiftRevenue ?? input?.revenue
+  const shiftRevenue = typeof shiftRevenueRaw === "number" ? shiftRevenueRaw : parseFloat(String(shiftRevenueRaw ?? ""))
+
   if (!isUuid(entryId) || !Number.isInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > 720) {
     return jsonNoStore({ error: "Gültige entryId und Pausenzeit erforderlich" }, { status: 400 })
+  }
+
+  if (isNaN(shiftRevenue) || shiftRevenue < 0) {
+    return jsonNoStore({ error: "Bitte gib deinen erbrachten Schichtumsatz in € an (Pflichtangabe beim Ausstempeln)." }, { status: 400 })
   }
 
   const supabase = await createClient()
@@ -119,6 +126,7 @@ export async function PATCH(request: NextRequest) {
       clock_out: clockOut,
       break_minutes: breakMinutes,
       total_hours: Math.round(total * 100) / 100,
+      shift_revenue: Math.round(shiftRevenue * 100) / 100,
     })
     .eq("id", entry.id)
     .is("clock_out", null)

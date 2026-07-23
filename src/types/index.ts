@@ -59,6 +59,7 @@ export type TimeEntry = {
   clock_out?: string
   break_minutes: number
   total_hours?: number
+  shift_revenue?: number | null
   auto_closed?: boolean
   created_at: string
 }

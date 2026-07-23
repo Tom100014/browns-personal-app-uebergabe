@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Play, Square, Wifi, WifiOff, AlertTriangle, Clock, ShieldAlert, Plus } from "lucide-react"
+import { Play, Square, Wifi, WifiOff, AlertTriangle, Clock, ShieldAlert, Plus, Euro, Check, X } from "lucide-react"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import type { TimeEntry, Employee, Shift } from "@/types"
 import { cn, calcHours } from "@/lib/utils"
@@ -33,6 +33,12 @@ export default function TimeTracker({
   const [rejected, setRejected] = useState(false)
   const [actionError, setActionError] = useState("")
   const [breakMinutes, setBreakMinutes] = useState(0)
+
+  // Mandatory Shift Revenue Clock-Out Modal State
+  const [showClockOutModal, setShowClockOutModal] = useState(false)
+  const [clockOutTarget, setClockOutTarget] = useState<TimeEntry | null>(null)
+  const [shiftRevenueInput, setShiftRevenueInput] = useState("")
+  const [revenueValidationError, setRevenueValidationError] = useState("")
 
   // Retroactive Admin Form State
   const [showRetroModal, setShowRetroModal] = useState(false)
@@ -98,21 +104,44 @@ export default function TimeTracker({
     setLoading(false)
   }
 
-  async function clockOut(entry: TimeEntry) {
-    setLoading(true); setActionError("")
+  function initiateClockOut(entry: TimeEntry) {
+    setClockOutTarget(entry)
+    setShiftRevenueInput("")
+    setRevenueValidationError("")
+    setShowClockOutModal(true)
+  }
+
+  async function executeClockOut() {
+    if (!clockOutTarget) return
+    const revenueVal = parseFloat(shiftRevenueInput.replace(",", "."))
+    if (isNaN(revenueVal) || revenueVal < 0) {
+      setRevenueValidationError("⚠️ Der Schichtumsatz ist eine Pflichtangabe beim Ausstempeln. Bitte gib deinen Betrag in € an.")
+      return
+    }
+
+    setLoading(true)
+    setActionError("")
+    setRevenueValidationError("")
+
     try {
       const res = await fetch("/api/timeentries/clockin", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entryId: entry.id, breakMinutes }),
+        body: JSON.stringify({ entryId: clockOutTarget.id, breakMinutes, shiftRevenue: revenueVal }),
       })
       const data = await res.json()
-      if (data.entry) setEntries(prev => prev.map(e => e.id === entry.id ? data.entry as TimeEntry : e))
-      else setActionError(data.error || "Ausstempeln fehlgeschlagen.")
+      if (data.entry) {
+        setEntries(prev => prev.map(e => e.id === clockOutTarget.id ? data.entry as TimeEntry : e))
+        setShowClockOutModal(false)
+        setClockOutTarget(null)
+      } else {
+        setRevenueValidationError(data.error || "Ausstempeln fehlgeschlagen.")
+      }
     } catch {
-      setActionError("Keine Verbindung zum Server.")
+      setRevenueValidationError("Keine Verbindung zum Server.")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   function openRetroForm(empId?: string, shiftDate?: string, startTime?: string, endTime?: string) {
@@ -247,7 +276,7 @@ export default function TimeTracker({
                   <option value={45}>45 Min Pause</option>
                   <option value={60}>1h Pause</option>
                 </select>
-                <button onClick={() => clockOut(activeEntry)} disabled={loading}
+                <button onClick={() => initiateClockOut(activeEntry)} disabled={loading}
                   className="spring-press inline-flex items-center gap-2 px-7 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-semibold text-sm shadow-md transition-all disabled:opacity-50">
                   <Square className="w-4 h-4 fill-current" /> Ausstempeln
                 </button>
@@ -309,7 +338,7 @@ export default function TimeTracker({
                   <option value={45}>45 Min Pause</option>
                   <option value={60}>1h Pause</option>
                 </select>
-                <button onClick={() => clockOut(activeEntry)} disabled={loading}
+                <button onClick={() => initiateClockOut(activeEntry)} disabled={loading}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-medium text-sm transition disabled:opacity-50">
                   <Square className="w-4 h-4" /> Ausstempeln
                 </button>
@@ -362,9 +391,14 @@ export default function TimeTracker({
                   <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: emp?.color ?? "#6366f1" }} />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-800">{emp?.name}</p>
-                    <p className="text-xs text-gray-400">
-                      {entry.clock_in.slice(0,5)} – {entry.clock_out?.slice(0,5) ?? "läuft…"}
-                      {entry.break_minutes > 0 && ` · ${entry.break_minutes}min Pause`}
+                    <p className="text-xs text-gray-400 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span>{entry.clock_in.slice(0,5)} – {entry.clock_out?.slice(0,5) ?? "läuft…"}</span>
+                      {entry.break_minutes > 0 && <span>· {entry.break_minutes}min Pause</span>}
+                      {entry.shift_revenue != null && (
+                        <span className="font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                          💶 {Number(entry.shift_revenue).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </span>
+                      )}
                       {entry.auto_closed && <span className="text-amber-600"> · ⚠ automatisch beendet</span>}
                     </p>
                   </div>
@@ -522,6 +556,97 @@ export default function TimeTracker({
                 className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
               >
                 {retroSaving ? "Speichern…" : "Freigeben & Eintragen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clock-Out Modal with Mandatory Shift Revenue Input */}
+      {showClockOutModal && clockOutTarget && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-gray-100 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600">
+                  <Euro className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-gray-900 text-base">Schicht beenden & Ausstempeln</h2>
+                  <p className="text-xs text-gray-500">Kassenumsatz-Erfassung nach der Schicht</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowClockOutModal(false); setClockOutTarget(null) }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="font-semibold text-gray-700 text-xs block mb-1">Pausenzeit</label>
+                <select
+                  value={breakMinutes}
+                  onChange={e => setBreakMinutes(Number(e.target.value))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 text-sm font-medium text-gray-800 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+                >
+                  <option value={0}>Keine Pause</option>
+                  <option value={15}>15 Min Pause</option>
+                  <option value={30}>30 Min Pause</option>
+                  <option value={45}>45 Min Pause</option>
+                  <option value={60}>1 Std Pause</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-gray-900 text-xs flex items-center gap-1">
+                    💶 Erbrachter Schichtumsatz in € <span className="text-red-500">* (Pflichtfeld)</span>
+                  </label>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="z. B. 450.00"
+                    value={shiftRevenueInput}
+                    onChange={e => { setShiftRevenueInput(e.target.value); setRevenueValidationError("") }}
+                    className="w-full pl-8 pr-4 py-3 rounded-xl border border-brand-200 text-base font-bold text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 shadow-sm"
+                  />
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">€</span>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Bitte trage deinen mit der Kasse in dieser Schicht erzielten Umsatz ein.
+                </p>
+              </div>
+
+              {revenueValidationError && (
+                <div role="alert" className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700">
+                  <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                  {revenueValidationError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => { setShowClockOutModal(false); setClockOutTarget(null) }}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={executeClockOut}
+                disabled={loading || !shiftRevenueInput.trim()}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-md transition disabled:opacity-40"
+              >
+                {loading ? "Wird gespeichert…" : "✅ Schicht beenden & Ausstempeln"}
               </button>
             </div>
           </div>
