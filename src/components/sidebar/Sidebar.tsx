@@ -120,10 +120,10 @@ export default function Sidebar() {
               return (
                 <Link key={href} href={href} onClick={() => setOpen(false)} aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex min-h-11 items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all",
-                    active ? "bg-brand-500 text-white shadow-sm shadow-brand-200/70" : "text-muted-foreground hover:bg-brand-50 hover:text-brand-700"
+                    "flex min-h-11 items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200",
+                    active ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-lg shadow-amber-500/25 border border-amber-400/40" : "text-slate-400 hover:bg-slate-800/60 hover:text-amber-400"
                   )}>
-                  <Icon aria-hidden="true" className={cn("w-4 h-4 flex-shrink-0", active ? "text-white" : "text-muted-foreground")} />
+                  <Icon aria-hidden="true" className={cn("w-4 h-4 flex-shrink-0 transition-colors", active ? "text-slate-950" : "text-slate-400 group-hover:text-amber-400")} />
                   <span className="flex-1">{label}</span>
                   {n > 0 && (
                     <><span aria-hidden="true" className={cn("text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded-full min-w-6 text-center",

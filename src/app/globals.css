@@ -75,18 +75,18 @@
 }
 
 :root {
-  --background: #f8f1e7;
-  --foreground: #2f2c29;
-  --card: oklch(1 0 0);
-  --primary: #cc4903;
-  --primary-foreground: oklch(1 0 0);
-  --muted: #f1eee8;
-  --muted-foreground: #756b62;
-  --border: #e7dac9;
+  --background: #0b0f19;
+  --foreground: #f8fafc;
+  --card: #131b2e;
+  --primary: #f59e0b;
+  --primary-foreground: #000000;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --border: #1e293b;
   --destructive: oklch(0.57 0.24 27);
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: #2f2c29;
-  --sidebar-border: #e4ded4;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-border: #1e293b;
   --radius: 1rem;
 }
 
@@ -155,62 +155,62 @@
   }
 
   .surface-card {
-    background: linear-gradient(180deg, #fff 0%, #fffaf3 100%);
-    border: 1px solid rgb(231 218 201 / 0.92);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 1.45rem;
-    box-shadow: var(--shadow-card);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
   }
 
   .floating-card {
-    background: linear-gradient(180deg, #fff 0%, #fff8ef 100%);
-    border: 1px solid rgb(231 218 201 / 0.78);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.9) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.25);
     border-radius: 1.55rem;
-    box-shadow: var(--shadow-float);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
   }
 
   .soft-panel {
     background:
-      linear-gradient(135deg, rgb(255 247 237 / 0.92), rgb(241 238 232 / 0.95)),
-      radial-gradient(circle at 88% 12%, rgb(214 207 20 / 0.20), transparent 32%);
+      linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)),
+      radial-gradient(circle at 88% 12%, rgba(245, 158, 11, 0.15), transparent 40%);
     border-radius: 2rem;
   }
 
   .menu-gradient {
     background:
-      linear-gradient(135deg, #2f2c29 0%, #4a413a 48%, #2f2c29 100%);
+      linear-gradient(135deg, #0f172a 0%, #1e293b 48%, #0f172a 100%);
   }
 
   .menu-stripe {
-    background: linear-gradient(90deg, #ff6818 0%, #ff7d22 55%, #f4c017 100%);
+    background: linear-gradient(90deg, #f59e0b 0%, #d97706 55%, #b45309 100%);
   }
 
   .brand-topbar {
-    background: linear-gradient(135deg, #ff6818 0%, #ff7d22 62%, #f4c017 100%);
-    box-shadow: 0 18px 44px -30px rgb(47 44 41 / 0.55);
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 62%, #0b0f19 100%);
+    box-shadow: 0 18px 44px -30px rgba(0, 0, 0, 0.8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .card-3d {
     transform: translateZ(0);
     box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.45) inset,
-      0 16px 34px -22px rgb(47 44 41 / 0.42),
-      0 34px 82px -50px rgb(47 44 41 / 0.50);
+      0 1px 0 rgba(255, 255, 255, 0.15) inset,
+      0 16px 34px -22px rgba(0, 0, 0, 0.8);
   }
 
-  /* Impeccable & Apple Fluid Glassmorphism Utilities */
+  /* Impeccable & Apple Fluid Glassmorphism Utilities V2 Dark */
   .glass-card {
-    background: rgba(255, 255, 255, 0.78);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid rgba(231, 218, 201, 0.65);
-    box-shadow: 0 10px 30px -10px rgba(47, 44, 41, 0.08), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+    background: rgba(30, 41, 59, 0.65);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.15) inset;
   }
 
   .glass-nav {
-    background: rgba(248, 241, 231, 0.85);
-    backdrop-filter: blur(20px) saturate(190%);
-    -webkit-backdrop-filter: blur(20px) saturate(190%);
-    border-top: 1px solid rgba(231, 218, 201, 0.75);
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(24px) saturate(190%);
+    -webkit-backdrop-filter: blur(24px) saturate(190%);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
   }
 
   .spring-press {
