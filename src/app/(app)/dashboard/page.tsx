@@ -204,23 +204,56 @@ export default async function DashboardPage() {
     }] : []),
   ]
 
+  // Current user employee profile
+  const { data: currentEmp } = user ? await supabase.from("employees").select("name, avatar").eq("auth_user_id", user.id).maybeSingle() : { data: null }
+  const empName = currentEmp?.name ?? (user?.email?.includes("zeynep") ? "Zeynep Kara" : "Zeynep")
+  const firstName = empName.split(" ")[0]
+  const userAvatar = currentEmp?.avatar ?? (user?.email?.includes("zeynep") ? "/avatars/zeynep-kara.jpg" : null)
+
+  const MOTIVATIONAL_QUOTES = [
+    "✨ „Ein starkes Team beginnt mit einer inspirierenden Leitung. Schön, dass du da bist!“",
+    "🌟 „Erfolg entsteht durch Leidenschaft, Vertrauen und gemeinsamen Einsatz.“",
+    "☕ „Dein Lächeln und deine positive Energie stecken das ganze Café an — heute wird ein phantastischer Tag!“",
+    "🏆 „Führung bedeutet, das Team gemeinsam zum Strahlen zu bringen. Auf einen großartigen Tag!“",
+    "❤️ „Mit Herz, Ausdauer und Motivation schaffen wir heute wieder Außergewöhnliches in Browns Lounge!“",
+  ]
+  const dailyQuote = MOTIVATIONAL_QUOTES[todayAnchor.getDate() % MOTIVATIONAL_QUOTES.length]
+
   return (
     <div className="max-w-7xl space-y-6 px-4 py-5 sm:px-6 lg:px-8">
       <LiveRefresh tables={["shifts", "time_entries", "absences", "coverage_requests", "coverage_offers", "employees", "knowledge_docs"]} />
 
-      <div className="soft-panel overflow-hidden p-6 sm:p-8">
+      <div className="soft-panel overflow-hidden p-6 sm:p-8 bg-gradient-to-r from-amber-500/10 via-white to-amber-500/5 border border-amber-200/60 shadow-sm rounded-3xl">
         <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand-700 shadow-card">
-              <Sparkles className="h-3.5 w-3.5" />
-              Browns Admin Dashboard
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-100/80 px-3.5 py-1.5 text-xs font-extrabold text-amber-900 shadow-sm border border-amber-200">
+              <Sparkles className="h-4 w-4 text-amber-600" />
+              <span>Browns Admin Dashboard · Geschäftsleitung</span>
             </div>
-            <h1 className="flex items-center gap-3 text-3xl leading-tight text-slate-950 sm:text-5xl">
-              <GreetingIcon className="h-8 w-8 text-brand-500 sm:h-10 sm:w-10" />
-              {greeting}, Leitung
-            </h1>
-            <p className="mt-3 text-sm capitalize leading-relaxed text-slate-500">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })}</p>
-            <p className="mt-1 text-xs text-slate-400">{user?.email}</p>
+            
+            <div className="flex items-center gap-4 mb-3">
+              {userAvatar ? (
+                <img src={userAvatar} alt={empName} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-4 border-white shadow-md flex-shrink-0" />
+              ) : (
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500 text-white font-extrabold text-2xl flex items-center justify-center border-4 border-white shadow-md flex-shrink-0">
+                  {firstName[0]}
+                </div>
+              )}
+              <div>
+                <h1 className="flex items-center gap-2.5 text-2xl font-black leading-tight text-slate-950 sm:text-4xl">
+                  <GreetingIcon className="h-7 w-7 text-amber-500 sm:h-9 sm:w-9 flex-shrink-0" />
+                  {greeting}, {firstName}! ✨
+                </h1>
+                <p className="text-sm font-semibold text-amber-800 mt-1">Einen wunderschönen &amp; erfolgreichen Tag in Browns Lounge!</p>
+              </div>
+            </div>
+
+            {/* Motivierender Tages-Spruch */}
+            <div className="mt-3 p-3.5 rounded-2xl bg-white/90 border border-amber-200/80 shadow-sm text-xs font-semibold text-slate-800 leading-relaxed italic">
+              {dailyQuote}
+            </div>
+
+            <p className="mt-2 text-xs capitalize leading-relaxed text-slate-500">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })} · <span className="font-mono text-slate-400">{user?.email}</span></p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:min-w-[360px]">

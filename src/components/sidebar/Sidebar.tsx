@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard, Calendar, Users, Clock,
   LogOut, MessageSquare, CheckSquare,
-  UserX, Settings, LifeBuoy, Menu, X, BarChart3, BookOpen, Server, Gauge, Bot
+  UserX, Settings, LifeBuoy, Menu, X, BarChart3, BookOpen, Server, Gauge, Bot, ShieldCheck
 } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
@@ -32,6 +32,7 @@ const SECTIONS: NavSection[] = [
       { href: "/abwesenheiten", icon: UserX, label: "Abwesenheiten", badge: "absences" },
       { href: "/vertretung", icon: LifeBuoy, label: "Vertretung", badge: "coverage" },
       { href: "/mitarbeiter", icon: Users, label: "Mitarbeiter" },
+      { href: "/mitarbeiter?tab=akte", icon: ShieldCheck, label: "🔒 KI-Verhaltensakten" },
       { href: "/nachrichten", icon: MessageSquare, label: "Nachrichten" },
       { href: "/checklisten", icon: CheckSquare, label: "Checklisten" },
     ],
@@ -53,6 +54,7 @@ export default function Sidebar() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [counts, setCounts] = useState<{ absences: number; coverage: number }>({ absences: 0, coverage: 0 })
+  const [profile, setProfile] = useState<{ name: string; avatar?: string | null; role: string } | null>(null)
   const drawerRef = useRef<HTMLDialogElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
@@ -63,6 +65,12 @@ export default function Sidebar() {
     async function load() {
       const supabase = createClient()
       const today = format(new Date(), "yyyy-MM-dd")
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user && active) {
+        const { data: emp } = await supabase.from("employees").select("name, avatar, role").eq("auth_user_id", user.id).maybeSingle()
+        if (emp) setProfile(emp)
+        else setProfile({ name: user.email?.includes("zeynep") ? "Zeynep Kara" : "Tom Schuh", avatar: user.email?.includes("zeynep") ? "/avatars/zeynep-kara.jpg" : null, role: "admin" })
+      }
       const [{ count: abs }, { count: cov }] = await Promise.all([
         supabase.from("absences").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("coverage_requests").select("id", { count: "exact", head: true }).eq("status", "open").gte("date", today),
@@ -141,10 +149,27 @@ export default function Sidebar() {
   )
 
   const renderLogoutButton = () => (
-    <button type="button" onClick={handleLogout}
-      className="flex min-h-11 items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-gray-100 hover:text-charcoal transition-all">
-      <LogOut aria-hidden="true" className="w-4 h-4" /> Abmelden
-    </button>
+    <div className="space-y-2">
+      {profile && (
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/80">
+          {profile.avatar ? (
+            <img src={profile.avatar} alt={profile.name} className="w-8 h-8 rounded-full object-cover border border-amber-300 shadow-sm flex-shrink-0" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-amber-500 text-white font-extrabold text-xs flex items-center justify-center flex-shrink-0">
+              {profile.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-gray-900 truncate">{profile.name}</p>
+            <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">{profile.role === "admin" ? "Admin / Leitung" : "Leitung"}</p>
+          </div>
+        </div>
+      )}
+      <button type="button" onClick={handleLogout}
+        className="flex min-h-11 items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-gray-100 hover:text-charcoal transition-all">
+        <LogOut aria-hidden="true" className="w-4 h-4" /> Abmelden
+      </button>
+    </div>
   )
 
   return (
