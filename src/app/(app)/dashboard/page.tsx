@@ -205,8 +205,12 @@ export default async function DashboardPage() {
   ]
 
   // Current user employee profile
-  const { data: currentEmp } = user ? await supabase.from("employees").select("name, avatar").eq("auth_user_id", user.id).maybeSingle() : { data: null }
-  const empName = currentEmp?.name ?? (user?.email?.includes("zeynep") ? "Zeynep Kara" : "Zeynep")
+  let { data: currentEmp } = user ? await supabase.from("employees").select("name, avatar").eq("auth_user_id", user.id).maybeSingle() : { data: null }
+  if (!currentEmp && user?.email) {
+    const { data: byEmail } = await supabase.from("employees").select("name, avatar").ilike("email", user.email).maybeSingle()
+    currentEmp = byEmail
+  }
+  const empName = currentEmp?.name ?? (user?.email?.includes("zeynep") ? "Zeynep Kara" : "Tom Schuh")
   const firstName = empName.split(" ")[0]
   const userAvatar = currentEmp?.avatar ?? (user?.email?.includes("zeynep") ? "/avatars/zeynep-kara.jpg" : null)
 

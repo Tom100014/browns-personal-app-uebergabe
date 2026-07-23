@@ -67,7 +67,11 @@ export default function Sidebar() {
       const today = format(new Date(), "yyyy-MM-dd")
       const { data: { user } } = await supabase.auth.getUser()
       if (user && active) {
-        const { data: emp } = await supabase.from("employees").select("name, avatar, role").eq("auth_user_id", user.id).maybeSingle()
+        let { data: emp } = await supabase.from("employees").select("name, avatar, role").eq("auth_user_id", user.id).maybeSingle()
+        if (!emp && user.email) {
+          const { data: byEmail } = await supabase.from("employees").select("name, avatar, role").ilike("email", user.email).maybeSingle()
+          emp = byEmail
+        }
         if (emp) setProfile(emp)
         else setProfile({ name: user.email?.includes("zeynep") ? "Zeynep Kara" : "Tom Schuh", avatar: user.email?.includes("zeynep") ? "/avatars/zeynep-kara.jpg" : null, role: "admin" })
       }
