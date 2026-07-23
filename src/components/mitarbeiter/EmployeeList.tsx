@@ -8,6 +8,7 @@ import { formatEuro } from "@/lib/hours"
 import { isPlanningProfileEmail } from "@/lib/planning-profile"
 import type { Employee } from "@/types"
 import { cn } from "@/lib/utils"
+import AvatarUpload from "@/components/portal/AvatarUpload"
 
 const COLORS = ["#f59e0b","#3b82f6","#10b981","#8b5cf6","#ef4444","#ec4899","#06b6d4","#84cc16","#f97316","#6366f1"]
 const POSITIONS = ["Service","Theke","Küche","Spüle","Bar","Kasse","Reinigung","Leitung"]
@@ -462,6 +463,17 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
               <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3">
+              {editing && (
+                <div className="mb-2">
+                  <AvatarUpload
+                    employee={editing}
+                    onAvatarChange={(newAvatar) => {
+                      setEmployees(list => list.map(e => e.id === editing.id ? { ...e, avatar: newAvatar ?? undefined } : e))
+                    }}
+                    showCallout={false}
+                  />
+                </div>
+              )}
               <div><label className="text-xs text-gray-500 mb-1 block font-medium">Name *</label>
                 <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Max Mustermann"
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" /></div>

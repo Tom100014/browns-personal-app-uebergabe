@@ -9,6 +9,7 @@ import { entryHours, formatHours, formatEuro } from "@/lib/hours"
 import DocumentManager from "./DocumentManager"
 import ContractGenerator from "./ContractGenerator"
 import EmployeeSecretFile from "./EmployeeSecretFile"
+import AvatarUpload from "@/components/portal/AvatarUpload"
 import type { Employee, EmployeeDocument } from "@/types"
 import { format } from "date-fns"
 import { de } from "date-fns/locale"
@@ -39,6 +40,7 @@ type Tab = "stammdaten" | "vertrag" | "dokumente" | "zeiten" | "abwesenheiten" |
 export default function EmployeeDetail({ employee, documents, timeEntries, absences }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>("stammdaten")
+  const [currentAvatar, setCurrentAvatar] = useState<string | null>(employee.avatar ?? null)
   const [form, setForm] = useState({
     name: employee.name,
     email: employee.email,
@@ -151,8 +153,8 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
 
       {/* Header card */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 flex items-center gap-4">
-        {employee.avatar ? (
-          <img src={employee.avatar} alt={employee.name} className="w-14 h-14 rounded-full object-cover border-2 border-gray-200 flex-shrink-0 shadow-sm" />
+        {currentAvatar ? (
+          <img src={currentAvatar} alt={employee.name} className="w-14 h-14 rounded-full object-cover border-2 border-gray-200 flex-shrink-0 shadow-sm" />
         ) : (
           <div aria-hidden="true" className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
             style={{ backgroundColor: employee.color }}>
@@ -190,8 +192,10 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
 
       {/* Stammdaten */}
       {tab === "stammdaten" && (
-        <form id="employee-panel-stammdaten" role="tabpanel" aria-labelledby="employee-tab-stammdaten" tabIndex={0}
-          onSubmit={event => { event.preventDefault(); void save() }} className="bg-white border border-gray-200 rounded-xl p-5">
+        <div id="employee-panel-stammdaten" role="tabpanel" aria-labelledby="employee-tab-stammdaten" tabIndex={0} className="space-y-4">
+          <AvatarUpload employee={{ ...employee, avatar: currentAvatar ?? undefined }} onAvatarChange={setCurrentAvatar} showCallout={false} />
+
+          <form onSubmit={event => { event.preventDefault(); void save() }} className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="grid sm:grid-cols-2 gap-4">
             <div><label htmlFor="employee-name" className={labelCls}>Name</label><input id="employee-name" name="name" autoComplete="name" className={inputCls} value={form.name} onChange={e => set("name", e.target.value)} /></div>
             <div><label htmlFor="employee-email" className={labelCls}>E-Mail</label><input id="employee-email" name="email" type="email" autoComplete="email" className={inputCls} value={form.email} onChange={e => set("email", e.target.value)} /></div>
@@ -232,6 +236,7 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
             {saved ? <><Check aria-hidden="true" className="w-4 h-4" /> Gespeichert</> : <><Save aria-hidden="true" className="w-4 h-4" /> Speichern</>}
           </button>
         </form>
+        </div>
       )}
 
       {/* Vertrag */}
