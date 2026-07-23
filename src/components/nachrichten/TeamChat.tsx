@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Send, LifeBuoy, Check, Clock, Hand, Trash2, Eraser, MessageSquare, Users, Wifi, ChevronDown } from "lucide-react"
+import { Send, LifeBuoy, Check, Clock, Hand, Trash2, Eraser, MessageSquare, Users, Wifi, ChevronDown, Edit3, Ban } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import type { Employee, Message, CoverageRequest, CoverageOffer } from "@/types"
 import { cn } from "@/lib/utils"
@@ -71,11 +71,14 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
     setOffers(map)
   }, [coverageRequests])
 
+  const [editingReqId, setEditingReqId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ date: "", startTime: "", endTime: "", position: "", reason: "" })
+  const [manageBusy, setManageBusy] = useState<string | null>(null)
+
   const refreshCoverage = useCallback(async () => {
     const { data } = await createClient()
       .from("coverage_requests")
       .select("*, offers:coverage_offers(*)")
-      .neq("status", "cancelled")
       .order("created_at", { ascending: false })
       .limit(40)
 
@@ -86,6 +89,84 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
     setCoverageItems(nextCoverage)
     setOffers(nextOffers)
   }, [])
+
+  async function cancelCoverageRequest(requestId: string) {
+    if (!window.confirm("Vertretungsanfrage wirklich stornieren?")) return
+    setManageBusy(requestId)
+    try {
+      const res = await fetch("/api/coverage/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel", requestId }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        await refreshCoverage()
+      } else {
+        alert(data.error || "Stornieren fehlgeschlagen.")
+      }
+    } catch {
+      alert("Fehler beim Stornieren der Vertretungsanfrage.")
+    } finally {
+      setManageBusy(null)
+    }
+  }
+
+  async function deleteCoverageRequest(requestId: string, messageId: string) {
+    if (!window.confirm("Vertretungsanfrage und Chat-Karte unwiderruflich löschen?")) return
+    setManageBusy(requestId)
+    try {
+      const res = await fetch("/api/coverage/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", requestId }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setMessages(prev => prev.filter(m => m.id !== messageId))
+        await refreshCoverage()
+      } else {
+        alert(data.error || "Löschen fehlgeschlagen.")
+      }
+    } catch {
+      alert("Fehler beim Löschen der Vertretungsanfrage.")
+    } finally {
+      setManageBusy(null)
+    }
+  }
+
+  function startEditCoverageRequest(req: CoverageRequest) {
+    setEditingReqId(req.id)
+    setEditForm({
+      date: req.date || "",
+      startTime: (req.start_time || "").slice(0, 5),
+      endTime: (req.end_time || "").slice(0, 5),
+      position: req.position || "Bar",
+      reason: req.reason || "",
+    })
+  }
+
+  async function saveEditCoverageRequest(requestId: string) {
+    setManageBusy(requestId)
+    try {
+      const res = await fetch("/api/coverage/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "edit", requestId, ...editForm }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setEditingReqId(null)
+        await refreshCoverage()
+      } else {
+        alert(data.error || "Bearbeiten fehlgeschlagen.")
+      }
+    } catch {
+      alert("Fehler beim Speichern der Änderungen.")
+    } finally {
+      setManageBusy(null)
+    }
+  }
 
   // Chat-Realtime bleibt lokal in dieser Komponente. So schreibt/empfängt man ohne
   // kompletten Server-Refresh, der die Mitarbeiter-App spürbar langsam gemacht hat.
@@ -252,19 +333,130 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
     const alreadyOffered = reqOffers.some(o => o.employee_id === selectedEmp)
     const suggested = empById(msg.meta?.suggested_id)
     const filled = req?.status === "filled"
+    const cancelled = req?.status === "cancelled"
     const filledBy = empById(req?.filled_by)
-    // Die Schicht ist vorbei — "Ich kann übernehmen" bleibt sonst dauerhaft anklickbar.
-    const expired = !filled && req ? req.date < format(new Date(), "yyyy-MM-dd") : false
+    const expired = !filled && !cancelled && req ? req.date < format(new Date(), "yyyy-MM-dd") : false
+    const isEditingThis = req && editingReqId === req.id
 
     return (
-      <div className="my-3 mx-auto w-full max-w-lg rounded-2xl border border-brand-200/80 bg-white px-4 py-3.5 shadow-card">
-        <div className="flex items-center gap-2 mb-1.5">
-          <LifeBuoy className="w-4 h-4 text-brand-600 flex-shrink-0" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-brand-700">Ersatz gesucht</span>
-        </div>
-        <p className="text-sm text-gray-800 leading-relaxed">{msg.content}</p>
+      <div className="my-3 mx-auto w-full max-w-lg rounded-2xl border border-brand-200/80 bg-white px-4 py-3.5 shadow-card relative group">
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <div className="flex items-center gap-2">
+            <LifeBuoy className="w-4 h-4 text-brand-600 flex-shrink-0" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-brand-700">Ersatz gesucht</span>
+            {cancelled && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                Storniert durch Leitung
+              </span>
+            )}
+          </div>
 
-        {suggested && !filled && (
+          {/* Admin Tools (Bearbeiten, Stornieren, Löschen) */}
+          {isAdmin && (
+            <div className="flex items-center gap-1">
+              {req && !isEditingThis && !cancelled && (
+                <button
+                  type="button"
+                  onClick={() => startEditCoverageRequest(req)}
+                  disabled={manageBusy === req.id}
+                  title="Anfrage bearbeiten"
+                  className="p-1 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {req && !cancelled && (
+                <button
+                  type="button"
+                  onClick={() => cancelCoverageRequest(req.id)}
+                  disabled={manageBusy === req.id}
+                  title="Anfrage stornieren"
+                  className="p-1 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => req ? deleteCoverageRequest(req.id, msg.id) : deleteMessage(msg.id)}
+                disabled={manageBusy === (req?.id ?? msg.id)}
+                title="Karte löschen"
+                className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isEditingThis && req ? (
+          <div className="mt-2 space-y-3 bg-brand-50/50 p-3 rounded-xl border border-brand-200">
+            <p className="text-xs font-bold text-brand-800">Vertretungsanfrage bearbeiten (Admin)</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <label className="text-[10px] text-gray-500 font-medium block mb-0.5">Datum</label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full px-2 py-1 rounded border border-gray-300 text-xs bg-white"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 font-medium block mb-0.5">Position</label>
+                <select
+                  value={editForm.position}
+                  onChange={e => setEditForm(f => ({ ...f, position: e.target.value }))}
+                  className="w-full px-2 py-1 rounded border border-gray-300 text-xs bg-white"
+                >
+                  <option value="Bar">Bar</option>
+                  <option value="Theke">Theke</option>
+                  <option value="Küche">Küche</option>
+                  <option value="Service">Service</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 font-medium block mb-0.5">Von (HH:MM)</label>
+                <input
+                  type="time"
+                  value={editForm.startTime}
+                  onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))}
+                  className="w-full px-2 py-1 rounded border border-gray-300 text-xs bg-white"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 font-medium block mb-0.5">Bis (HH:MM)</label>
+                <input
+                  type="time"
+                  value={editForm.endTime}
+                  onChange={e => setEditForm(f => ({ ...f, endTime: e.target.value }))}
+                  className="w-full px-2 py-1 rounded border border-gray-300 text-xs bg-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setEditingReqId(null)}
+                className="px-2.5 py-1 rounded text-xs border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={() => saveEditCoverageRequest(req.id)}
+                disabled={manageBusy === req.id}
+                className="px-3 py-1 rounded text-xs bg-brand-600 text-white font-medium hover:bg-brand-700 disabled:opacity-50"
+              >
+                Speichern
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-800 leading-relaxed">{msg.content}</p>
+        )}
+
+        {suggested && !filled && !cancelled && (
           <p className="text-xs text-gray-500 mt-1.5">
             💡 Bester Vorschlag: <span className="font-medium text-gray-700">{suggested.name}</span>
           </p>
@@ -291,6 +483,10 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
         {filled ? (
           <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-emerald-700">
             <Check className="w-4 h-4" /> Übernommen von {filledBy?.name ?? "—"}
+          </div>
+        ) : cancelled ? (
+          <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-red-600">
+            <Ban className="w-4 h-4" /> Vertretungsanfrage storniert
           </div>
         ) : expired ? (
           <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-gray-400">
@@ -410,10 +606,18 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
             return (
               <div key={msg.id} className={cn("group flex gap-2.5", isMe && "flex-row-reverse")}>
                 {showName ? (
-                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-card"
-                    style={{ backgroundColor: emp?.color ?? "#6366f1" }}>
-                    {emp?.name?.split(" ").map(n => n[0]).join("").slice(0,2)}
-                  </div>
+                  emp?.avatar ? (
+                    <img
+                      src={emp.avatar}
+                      alt={emp.name}
+                      className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-gray-200 shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-card"
+                      style={{ backgroundColor: emp?.color ?? "#6366f1" }}>
+                      {emp?.name?.split(" ").map(n => n[0]).join("").slice(0,2)}
+                    </div>
+                  )
                 ) : <div className="w-8 flex-shrink-0" />}
                 <div className={cn("max-w-[78%] sm:max-w-xs flex flex-col gap-0.5", isMe && "items-end")}>
                   {showName && <p className="text-xs text-gray-400 font-medium px-1">{emp?.name}</p>}

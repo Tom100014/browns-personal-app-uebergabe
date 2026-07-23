@@ -1,23 +1,52 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Play, Square, Wifi, WifiOff, AlertTriangle } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { Play, Square, Wifi, WifiOff, AlertTriangle, Clock, ShieldAlert, Plus } from "lucide-react"
 import { useRealtimeRefresh } from "@/lib/realtime"
-import type { TimeEntry, Employee } from "@/types"
+import type { TimeEntry, Employee, Shift } from "@/types"
 import { cn, calcHours } from "@/lib/utils"
 import { format } from "date-fns"
 import { de } from "date-fns/locale"
 
-interface Props { entries: TimeEntry[]; employees: Employee[]; locationConfigured: boolean; lockedEmployeeId?: string; hero?: boolean }
+interface Props {
+  entries: TimeEntry[]
+  employees: Employee[]
+  shifts?: Shift[]
+  locationConfigured: boolean
+  lockedEmployeeId?: string
+  hero?: boolean
+  isAdmin?: boolean
+}
 
-export default function TimeTracker({ entries: initialEntries, employees, locationConfigured, lockedEmployeeId, hero = false }: Props) {
+export default function TimeTracker({
+  entries: initialEntries,
+  employees,
+  shifts = [],
+  locationConfigured,
+  lockedEmployeeId,
+  hero = false,
+  isAdmin = false,
+}: Props) {
   const [entries, setEntries] = useState<TimeEntry[]>(initialEntries)
   const [selectedEmployee, setSelectedEmployee] = useState(lockedEmployeeId ?? employees[0]?.id ?? "")
   const [loading, setLoading] = useState(false)
   const [rejected, setRejected] = useState(false)
   const [actionError, setActionError] = useState("")
   const [breakMinutes, setBreakMinutes] = useState(0)
-  // Live-Timer für die Hero-Ansicht: aktualisiert die gearbeitete Zeit jede halbe Minute.
+
+  // Retroactive Admin Form State
+  const [showRetroModal, setShowRetroModal] = useState(false)
+  const [retroForm, setRetroForm] = useState({
+    employeeId: employees[0]?.id ?? "",
+    date: format(new Date(), "yyyy-MM-dd"),
+    clockIn: "09:00",
+    clockOut: "17:00",
+    breakMinutes: 30,
+    note: "Nachtrag durch Leitung",
+  })
+  const [retroSaving, setRetroSaving] = useState(false)
+
+  // Live-Timer für Hero
   const [, setTick] = useState(0)
   useEffect(() => {
     if (!hero) return
@@ -27,11 +56,31 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
 
   const todayStr = format(new Date(), "yyyy-MM-dd")
 
-  // Live-Sync: Ein-/Ausstempeln anderer Mitarbeiter sofort sichtbar.
+  // Live-Sync
   useRealtimeRefresh(["time_entries"])
   useEffect(() => { setEntries(initialEntries) }, [initialEntries])
 
   const activeEntry = entries.find(e => e.employee_id === selectedEmployee && !e.clock_out)
+
+  // Missing Clock-in Detection (Idee 1)
+  const missingClockIns = useMemo(() => {
+    if (!shifts || shifts.length === 0) return []
+    const nowTime = format(new Date(), "HH:mm")
+
+    return shifts.filter(shift => {
+      if (shift.status === "absent" || !shift.employee_id) return false
+      const hasEntry = entries.some(
+        e => e.employee_id === shift.employee_id && e.date === shift.date
+      )
+      if (hasEntry) return false
+
+      if (shift.date < todayStr) return true
+      if (shift.date === todayStr) {
+        return shift.start_time.slice(0, 5) <= nowTime
+      }
+      return false
+    })
+  }, [shifts, entries, todayStr])
 
   async function clockIn() {
     if (!selectedEmployee) return
@@ -66,12 +115,87 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
     setLoading(false)
   }
 
+  function openRetroForm(empId?: string, shiftDate?: string, startTime?: string, endTime?: string) {
+    setRetroForm({
+      employeeId: empId || selectedEmployee || employees[0]?.id || "",
+      date: shiftDate || todayStr,
+      clockIn: startTime ? startTime.slice(0, 5) : "09:00",
+      clockOut: endTime ? endTime.slice(0, 5) : "17:00",
+      breakMinutes: 30,
+      note: "Nachtrag durch Leitung (Stempelung gefehlt)",
+    })
+    setShowRetroModal(true)
+  }
+
+  async function submitRetroactiveEntry() {
+    setRetroSaving(true)
+    setActionError("")
+    try {
+      const res = await fetch("/api/timeentries/retroactive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(retroForm),
+      })
+      const data = await res.json()
+      if (data.ok && data.entry) {
+        setEntries(prev => [data.entry as TimeEntry, ...prev])
+        setShowRetroModal(false)
+      } else {
+        setActionError(data.error || "Nachträgliches Einstempeln fehlgeschlagen.")
+      }
+    } catch {
+      setActionError("Verbindungsfehler beim Server.")
+    } finally {
+      setRetroSaving(false)
+    }
+  }
+
   const todayEntries = entries.filter(e => e.date === todayStr)
   const totalToday = todayEntries.reduce((s, e) => s + (e.total_hours ?? 0), 0)
 
   return (
     <div className="space-y-5 max-w-3xl">
-      {/* Standort-/WLAN-Status — ehrlich: grün nur bei echter, aktiver Prüfung */}
+      {/* Automatischer Hinweis: Fehlendes Einstempeln erkannt (Idee 1) */}
+      {isAdmin && missingClockIns.length > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-card">
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <h3 className="text-sm font-bold text-amber-900">
+              Automatischer Hinweis: {missingClockIns.length} Mitarbeiter {missingClockIns.length === 1 ? "ist" : "sind"} nicht eingestempelt!
+            </h3>
+          </div>
+          <p className="text-xs text-amber-800 mb-3">
+            Das System hat erkannt, dass für folgende geplante Schicht(en) bisher keine Einstempelung vorliegt:
+          </p>
+
+          <div className="space-y-2">
+            {missingClockIns.map(shift => {
+              const emp = employees.find(e => e.id === shift.employee_id)
+              return (
+                <div key={shift.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/90 border border-amber-200 p-2.5">
+                  <div>
+                    <span className="text-xs font-bold text-gray-900">{emp?.name ?? "Mitarbeiter"}</span>
+                    <span className="text-xs text-gray-500 ml-2 font-medium">
+                      ({shift.position}) · {shift.date} · {shift.start_time.slice(0, 5)}–{shift.end_time.slice(0, 5)} Uhr
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => openRetroForm(shift.employee_id ?? undefined, shift.date, shift.start_time, shift.end_time)}
+                      className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition flex items-center gap-1"
+                    >
+                      <Clock className="w-3.5 h-3.5" /> Nachträglich eintragen
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Standort-/WLAN-Status */}
       <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl border text-sm",
         rejected ? "bg-red-50 border-red-200 text-red-700" :
         locationConfigured ? "bg-blue-50 border-blue-200 text-blue-700" :
@@ -86,7 +210,7 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
         </span>
       </div>
 
-      {/* Hero-Stempeluhr (Mitarbeiter-App): High-Craft Apple Fluid Dial */}
+      {/* Hero-Stempeluhr */}
       {hero && (
         <div className="glass-card rounded-3xl p-8 flex flex-col items-center text-center relative overflow-hidden transition-all duration-300">
           <div className="absolute -right-12 -top-12 w-40 h-40 bg-brand-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -102,7 +226,6 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
                 Eingestempelt seit {activeEntry.clock_in.slice(0, 5)} Uhr
               </div>
 
-              {/* Live Hours Timer */}
               <div className="relative my-2">
                 <p className="stat-number text-6xl font-extrabold text-charcoal tracking-tight tabular-nums">
                   {(() => {
@@ -132,7 +255,6 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
             </>
           ) : (
             <>
-              {/* Fluid Interactive Stamp Button */}
               <div className="relative my-3">
                 <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl animate-pulse pointer-events-none" />
                 <button onClick={clockIn} disabled={loading || !selectedEmployee}
@@ -152,71 +274,74 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
         </div>
       )}
 
-      {/* Clock In/Out */}
+      {/* Clock In/Out & Admin Manual Button */}
       {!hero && (
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-4">Stempeln</h2>
-        <div className="flex items-center gap-3 flex-wrap">
-          {!lockedEmployeeId && (
-            <select value={selectedEmployee} onChange={e => setSelectedEmployee(e.target.value)}
-              aria-label="Mitarbeiter auswählen"
-              className="flex-1 min-w-48 px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
-              {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
-            </select>
-          )}
-
-          {activeEntry ? (
-            <>
-              <select value={breakMinutes} onChange={e => setBreakMinutes(Number(e.target.value))}
-                aria-label="Pausenzeit auswählen"
-                className="px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
-                <option value={0}>Keine Pause</option>
-                <option value={15}>15 Min Pause</option>
-                <option value={30}>30 Min Pause</option>
-                <option value={45}>45 Min Pause</option>
-                <option value={60}>1h Pause</option>
-              </select>
-              <button onClick={() => clockOut(activeEntry)} disabled={loading}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-medium text-sm transition disabled:opacity-50">
-                <Square className="w-4 h-4" /> Ausstempeln
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-900">Stempeln</h2>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => openRetroForm()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-300 bg-brand-50 text-brand-700 text-xs font-bold hover:bg-brand-100 transition"
+              >
+                <Plus className="w-3.5 h-3.5" /> Nachträglich eintragen (Admin)
               </button>
-            </>
-          ) : (
-            <button onClick={clockIn} disabled={loading || !selectedEmployee}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-medium text-sm transition disabled:opacity-50">
-              <Play className="w-4 h-4" /> Einstempeln
-            </button>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {!lockedEmployeeId && (
+              <select value={selectedEmployee} onChange={e => setSelectedEmployee(e.target.value)}
+                aria-label="Mitarbeiter auswählen"
+                className="flex-1 min-w-48 px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
+                {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+              </select>
+            )}
+
+            {activeEntry ? (
+              <>
+                <select value={breakMinutes} onChange={e => setBreakMinutes(Number(e.target.value))}
+                  aria-label="Pausenzeit auswählen"
+                  className="px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500">
+                  <option value={0}>Keine Pause</option>
+                  <option value={15}>15 Min Pause</option>
+                  <option value={30}>30 Min Pause</option>
+                  <option value={45}>45 Min Pause</option>
+                  <option value={60}>1h Pause</option>
+                </select>
+                <button onClick={() => clockOut(activeEntry)} disabled={loading}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-medium text-sm transition disabled:opacity-50">
+                  <Square className="w-4 h-4" /> Ausstempeln
+                </button>
+              </>
+            ) : (
+              <button onClick={clockIn} disabled={loading || !selectedEmployee}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-medium text-sm transition disabled:opacity-50">
+                <Play className="w-4 h-4" /> Einstempeln
+              </button>
+            )}
+          </div>
+
+          {activeEntry && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Eingestempelt seit {activeEntry.clock_in.slice(0,5)} Uhr ·&nbsp;
+              {calcHours(activeEntry.clock_in, format(new Date(), "HH:mm"))}h gearbeitet
+            </div>
           )}
-        </div>
 
-        {activeEntry && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Eingestempelt seit {activeEntry.clock_in.slice(0,5)} Uhr ·&nbsp;
-            {calcHours(activeEntry.clock_in, format(new Date(), "HH:mm"))}h gearbeitet
-          </div>
-        )}
-
-        {rejected && (
-          <div className="mt-3 flex items-start gap-2 text-sm text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
-            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            Einstempeln nur im Browns Café WLAN möglich. Bist du mit dem Café-Netz verbunden?
-          </div>
-        )}
-        {actionError && (
-          <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-            {actionError}
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* Ablehnung auch in der Hero-Ansicht anzeigen */}
-      {hero && rejected && (
-        <div className="flex items-start gap-2 text-sm text-orange-700 bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          Einstempeln nur im Browns Café WLAN möglich. Bist du mit dem Café-Netz verbunden?
+          {rejected && (
+            <div className="mt-3 flex items-start gap-2 text-sm text-orange-700 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              Einstempeln nur im Browns Café WLAN möglich. Bist du mit dem Café-Netz verbunden?
+            </div>
+          )}
+          {actionError && (
+            <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              {actionError}
+            </div>
+          )}
         </div>
       )}
 
@@ -257,7 +382,7 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
         )}
       </div>
 
-      {/* Alle Einträge Tabelle */}
+      {/* Verlauf */}
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <h2 className="font-semibold text-gray-900 mb-4">Verlauf</h2>
         {entries.length === 0 ? (
@@ -288,7 +413,10 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
                       </td>
                       <td className="py-2.5 pr-4 text-gray-500">{entry.date}</td>
                       <td className="py-2.5 pr-4 text-gray-700">{entry.clock_in.slice(0,5)}</td>
-                      <td className="py-2.5 pr-4 text-gray-700">{entry.clock_out?.slice(0,5) ?? <span className="text-emerald-500 font-medium">aktiv</span>}{entry.auto_closed && <span className="ml-1 text-amber-600" title="automatisch beendet (vergessenes Ausstempeln)">⚠</span>}</td>
+                      <td className="py-2.5 pr-4 text-gray-700">
+                        {entry.clock_out?.slice(0,5) ?? <span className="text-emerald-500 font-medium">aktiv</span>}
+                        {entry.auto_closed && <span className="ml-1 text-amber-600" title="automatisch beendet">⚠</span>}
+                      </td>
                       <td className="py-2.5 pr-4 text-gray-500">{entry.break_minutes > 0 ? `${entry.break_minutes}min` : "—"}</td>
                       <td className="py-2.5 text-right font-semibold text-gray-800">{entry.total_hours ?? "—"}</td>
                     </tr>
@@ -299,6 +427,106 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
           </div>
         )}
       </div>
+
+      {/* Modal: Nachträgliches Einstempeln (Admin) */}
+      {showRetroModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-base font-bold text-gray-900 mb-1">Nachträgliche Zeiterfassung (Admin)</h3>
+            <p className="text-xs text-gray-500 mb-4">Erfasse nachträglich die Arbeitszeit für einen Mitarbeiter.</p>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-semibold text-gray-700 block mb-1">Mitarbeiter</label>
+                <select
+                  value={retroForm.employeeId}
+                  onChange={e => setRetroForm(f => ({ ...f, employeeId: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white"
+                >
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.position})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-semibold text-gray-700 block mb-1">Datum</label>
+                <input
+                  type="date"
+                  value={retroForm.date}
+                  onChange={e => setRetroForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-semibold text-gray-700 block mb-1">Von (HH:MM)</label>
+                  <input
+                    type="time"
+                    value={retroForm.clockIn}
+                    onChange={e => setRetroForm(f => ({ ...f, clockIn: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-gray-700 block mb-1">Bis (HH:MM)</label>
+                  <input
+                    type="time"
+                    value={retroForm.clockOut}
+                    onChange={e => setRetroForm(f => ({ ...f, clockOut: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-gray-700 block mb-1">Pause</label>
+                <select
+                  value={retroForm.breakMinutes}
+                  onChange={e => setRetroForm(f => ({ ...f, breakMinutes: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white"
+                >
+                  <option value={0}>Keine Pause</option>
+                  <option value={15}>15 Min Pause</option>
+                  <option value={30}>30 Min Pause</option>
+                  <option value={45}>45 Min Pause</option>
+                  <option value={60}>1 Std Pause</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="font-semibold text-gray-700 block mb-1">Begründung / Notiz</label>
+                <input
+                  type="text"
+                  value={retroForm.note}
+                  onChange={e => setRetroForm(f => ({ ...f, note: e.target.value }))}
+                  placeholder="z.B. Vergessen einzustempeln"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end mt-6">
+              <button
+                type="button"
+                onClick={() => setShowRetroModal(false)}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={submitRetroactiveEntry}
+                disabled={retroSaving}
+                className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
+              >
+                {retroSaving ? "Speichern…" : "Freigeben & Eintragen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

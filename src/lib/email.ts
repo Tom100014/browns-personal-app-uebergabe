@@ -18,16 +18,20 @@ function htmlBody(subject: string, text: string, link: string): string {
 
 export async function sendEmail(to: string[], subject: string, text: string, url?: string): Promise<{ success: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY
-  const from = process.env.RESEND_FROM // e.g. "Browns Perso <no-reply@browns.at>"
-  if (!key || !from || to.length === 0) {
-    return { success: false, error: "Resend ist nicht vollständig konfiguriert (RESEND_API_KEY oder RESEND_FROM fehlt)." }
+  const from = process.env.RESEND_FROM || "Browns Perso <onboarding@resend.dev>"
+  
+  if (!key || to.length === 0) {
+    console.warn("[Email Warning] kein RESEND_API_KEY konfiguriert.")
+    return { success: false, error: "Kein E-Mail-API-Schlüssel in .env.local konfiguriert (RESEND_API_KEY fehlt)." }
   }
-  const base = process.env.NEXT_PUBLIC_APP_URL || "https://browns-perso.vercel.app"
+  
+  const base = process.env.NEXT_PUBLIC_APP_URL || "https://browns-perso-app.vercel.app"
   const link = url ? new URL(url, base).toString() : base
+
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${key.trim()}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, subject, text, html: htmlBody(subject, text, link) }),
     })
     if (!res.ok) {
@@ -38,8 +42,8 @@ export async function sendEmail(to: string[], subject: string, text: string, url
     }
     return { success: true }
   } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : "Netzwerkfehler beim Aufruf der Resend API."
-    console.error("[Resend Fetch Error]", err)
+    const errMsg = err instanceof Error ? err.message : "Netzwerkfehler beim E-Mail-Versand."
+    console.error("[Email Fetch Error]", err)
     return { success: false, error: errMsg }
   }
 }

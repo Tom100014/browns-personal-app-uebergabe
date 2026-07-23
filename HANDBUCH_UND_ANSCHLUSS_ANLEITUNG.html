@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Betriebshandbuch & Anschluss-Anleitung — Browns Personal App</title>
+  <style>
+    :root {
+      --brand: #d97706;
+      --brand-dark: #b45309;
+      --bg: #fafafa;
+      --card-bg: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 30px 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+      padding: 40px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    .header img {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+    }
+    h1 {
+      font-size: 26px;
+      color: #111827;
+      margin: 0;
+    }
+    .subtitle {
+      color: var(--brand);
+      font-weight: 700;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    h2 {
+      font-size: 18px;
+      color: var(--brand-dark);
+      margin-top: 35px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+    p, li {
+      font-size: 14.5px;
+      color: #374151;
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background: #f3f4f6;
+      padding: 3px 6px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    pre {
+      padding: 15px;
+      overflow-x: auto;
+      border-left: 4px solid var(--brand);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 13.5px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      background: #dcfce7;
+      color: #166534;
+      font-weight: 700;
+      border-radius: 99px;
+      font-size: 11px;
+    }
+    .btn {
+      display: inline-block;
+      background: var(--brand);
+      color: #fff;
+      text-decoration: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    .btn:hover {
+      background: var(--brand-dark);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="public/brand/browns-round-logo.png" alt="Browns Logo" onerror="this.style.display='none'">
+      <div>
+        <div class="subtitle">Browns Coffee Lounge Nürnberg</div>
+        <h1>Betriebshandbuch &amp; Anschluss-Anleitung</h1>
+      </div>
+    </div>
+
+    <p><span class="badge">SYSTEM SYSTEMBEREIT &amp; SYNCHRONISIERT</span></p>
+    <p>Diese Anleitung dokumentiert das vollständige System, alle Zugangsdaten, die Supabase- und Vercel-Anbindung sowie Anleitungen für zukünftige Entwicklungen.</p>
+
+    <h2>🔗 1. Projekt-Übersicht &amp; Zugänge</h2>
+    <ul>
+      <li><strong>Live Production URL:</strong> <a href="https://browns-perso-app.vercel.app" target="_blank">https://browns-perso-app.vercel.app</a></li>
+      <li><strong>GitHub Repository:</strong> <code>https://github.com/Tom100014/browns-personal-app-uebergabe.git</code></li>
+      <li><strong>Supabase Projekt-ID:</strong> <code>nrqbjzralbteecdmrxeq</code></li>
+      <li><strong>Vercel Team &amp; Projekt:</strong> <code>sosotechs-projects/browns-perso-app</code></li>
+    </ul>
+
+    <h2>🔑 2. Vercel Production Environment Variables</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Variable Name</th>
+          <th>Zweck</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>NEXT_PUBLIC_SUPABASE_URL</code></td><td>Supabase API Endpoint</td><td><span class="badge">Aktiv</span></td></tr>
+        <tr><td><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></td><td>Supabase Public Anon Key</td><td><span class="badge">Aktiv</span></td></tr>
+        <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>Supabase Admin Service Role Key</td><td><span class="badge">Aktiv</span></td></tr>
+        <tr><td><code>RESEND_API_KEY</code></td><td>E-Mail API Key (Resend)</td><td><span class="badge">Aktiv</span></td></tr>
+        <tr><td><code>RESEND_FROM</code></td><td>E-Mail Absender Name/Adresse</td><td><span class="badge">Aktiv</span></td></tr>
+        <tr><td><code>LLM_API_KEY</code></td><td>KI-Assistent API Key (OpenRouter)</td><td><span class="badge">Aktiv</span></td></tr>
+        <tr><td><code>LLM_MODEL</code></td><td>KI-Assistent Modell (gpt-4o-mini / llama-3.3)</td><td><span class="badge">Aktiv</span></td></tr>
+        <tr><td><code>CRON_SECRET</code></td><td>Automatisierte Systemaufgaben</td><td><span class="badge">Aktiv</span></td></tr>
+      </tbody>
+    </table>
+
+    <h2>✉️ 3. Resend E-Mail-System &amp; Freischaltung</h2>
+    <p>Aktuell werden Test-E-Mails im Testmodus (<code>onboarding@resend.dev</code>) gesendet. Für die Freischaltung an alle Mitarbeiter-E-Mails:</p>
+    <ol>
+      <li>Domain auf <a href="https://resend.com/domains" target="_blank">resend.com/domains</a> hinzufügen (z. B. <code>browns.at</code>).</li>
+      <li>DNS DKIM &amp; SPF Einträge beim Domain-Hoster eintragen.</li>
+      <li>In Vercel <code>RESEND_FROM</code> anpassen zu: <code>Browns Perso &lt;no-reply@browns.at&gt;</code>.</li>
+    </ol>
+
+    <h2>📱 4. Mitarbeiter-Zugang &amp; E-Mail Einleitung</h2>
+    <p>Unter <strong>Mitarbeiter</strong> (&rarr; <em>Zugang einrichten</em>) wird beim Passwort-Setzen automatisch eine E-Mail mit Zugangsdaten und Einrichtungsschritten an den Mitarbeiter gesendet:</p>
+    <ul>
+      <li>Direkter Login-Link auf der App</li>
+      <li>Anleitung zur PWA-Installation auf dem Smartphone Startbildschirm</li>
+      <li>Push-Benachrichtigungen Aktivierung</li>
+      <li>Passwort verwalten &amp; Zurücksetzen auf der Login-Seite</li>
+    </ul>
+
+    <h2>🚀 5. How-To: Änderungen machen &amp; Ausführen</h2>
+    <p>Um Änderungen am Code in diesem Ordner vorzunehmen:</p>
+    <pre><code># 1. Ordner im Terminal öffnen
+cd "/Users/thomasschuh/Desktop/Browns Lounge Nürnberg Personalapp Askim"
+
+# 2. Abhängigkeiten installieren
+npm install
+
+# 3. Lokalen Server starten
+npm run dev
+
+# 4. Prüfen &amp; Build testen
+npx tsc --noEmit && npm run build
+
+# 5. Auf GitHub &amp; Vercel veröffentlichen
+git add .
+git commit -m "feat: Deine Änderung"
+git push origin main
+npx vercel --prod --yes</code></pre>
+
+    <a href="https://browns-perso-app.vercel.app" target="_blank" class="btn">Zur Live-App &rarr;</a>
+  </div>
+</body>
+</html>

@@ -72,6 +72,74 @@ export function rankCandidates(
   })
 }
 
+export type CandidateRecommendation = {
+  employee: Employee
+  score: number
+  isTopChoice: boolean
+  reasons: string[]
+  badge?: string
+}
+
+export function evaluateCandidateSuitability(
+  candidate: Employee,
+  gap: { date: string; start_time?: string | null; end_time?: string | null; position?: string | null },
+  monthlyHoursWorked = 0,
+): CandidateRecommendation {
+  let score = 50
+  const reasons: string[] = []
+  let badge: string | undefined = undefined
+
+  // 1. Position Match
+  if (gap.position && candidate.position === gap.position) {
+    score += 30
+    reasons.push(`Primärposition ${candidate.position} passt exakt`)
+  } else if (gap.position) {
+    reasons.push(`Abteilungsfremd (${candidate.position} vs. ${gap.position})`)
+  }
+
+  // 2. Worked Hours / Under-utilization
+  const targetWeekly = Number(candidate.weekly_hours) || (candidate.employment_type === "Vollzeit" ? 40 : candidate.employment_type === "Teilzeit" ? 20 : 10)
+  const monthlyTarget = targetWeekly * 4.33
+
+  if (monthlyHoursWorked > 0) {
+    if (monthlyHoursWorked < monthlyTarget * 0.75) {
+      score += 25
+      reasons.push(`Geringe Monatsstunden (${monthlyHoursWorked.toFixed(1)}h / ~${Math.round(monthlyTarget)}h Soll) - optimal zum Aufstocken`)
+      badge = "Stunden-Ausgleich"
+    } else if (monthlyHoursWorked > monthlyTarget * 1.1) {
+      score -= 15
+      reasons.push(`Hohe Monatsstunden (${monthlyHoursWorked.toFixed(1)}h) - Überstunden vermeiden`)
+    } else {
+      reasons.push(`Gute Auslastung (${monthlyHoursWorked.toFixed(1)}h)`)
+    }
+  }
+
+  // 3. Peak Day / High Customer Volume (Weekend or Evening Shift)
+  if (gap.date) {
+    const d = new Date(gap.date)
+    const dayOfWeek = d.getDay() // 0 = Sun, 5 = Fri, 6 = Sat
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6
+    const startTime = (gap.start_time || "").slice(0, 5)
+    const isEvening = startTime >= "17:00"
+
+    if (isWeekend || isEvening) {
+      if (candidate.employment_type === "Vollzeit" || candidate.role === "manager" || candidate.role === "admin") {
+        score += 20
+        reasons.push("Erfahrene Stammkraft für Stoßzeiten (Wochenende/Abend)")
+        if (!badge) badge = "Stoßzeiten-Experte"
+      }
+    }
+  }
+
+  return {
+    employee: candidate,
+    score,
+    isTopChoice: false,
+    reasons,
+    badge,
+  }
+}
+
 export type AutomationMode = "vorschlag"
 export type AutomationSettings = { mode: AutomationMode; samePositionOnly: boolean }
 

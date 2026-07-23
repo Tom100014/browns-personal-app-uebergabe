@@ -73,12 +73,17 @@ export default function MyAbsence({ absences: initial, employeeId }: { absences:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ absenceId: data.id }),
       })
-      const result = await response.json().catch(() => null) as { opened?: number; error?: string } | null
+      const result = await response.json().catch(() => null) as {
+        opened?: number
+        error?: string
+        recipientCount?: number
+      } | null
       const gaps = Number(result?.opened ?? 0)
+      const recs = Number(result?.recipientCount ?? 0)
       const baseNotice = !response.ok
         ? `Antrag eingereicht. Die automatische Ersatzsuche ist fehlgeschlagen: ${result?.error ?? "Bitte die Leitung informieren."}`
         : gaps > 0
-          ? `Antrag eingereicht. ${gaps} betroffene Schicht${gaps > 1 ? "en" : ""} — das Team wurde um Ersatz gebeten.`
+          ? `Ausfall gemeldet. ${gaps} betroffene Schicht${gaps > 1 ? "en" : ""} — ${recs > 0 ? recs : "Alle geeigneten"} Kolleg:innen der Abteilung wurden automatisch zeitgleich per App, E-Mail und WhatsApp informiert.`
           : "Antrag eingereicht. Die Leitung prüft ihn."
       setNotice(uploadWarning ? `${baseNotice} Der Nachweis konnte nicht hochgeladen werden; bitte erneut versuchen.` : baseNotice)
     } catch {

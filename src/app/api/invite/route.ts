@@ -132,8 +132,8 @@ export async function POST(request: NextRequest) {
   // Sende ausführliche E-Mail-Einleitung an den Mitarbeiter per Resend
   const inviteText = `Hallo ${employee.name || "Mitarbeiter"},\n\nhier ist dein Zugang zur Browns Personal App:\n${redirectTo}\n\nE-Mail (Login): ${email}\n\nAnleitung zum Einrichten:\n1. Öffne die App auf deinem Smartphone\n2. Auf iPhone: Teilen -> "Zum Home-Bildschirm"\n3. Auf Android: Menü -> "App installieren"\n4. Erlaube Push-Benachrichtigungen für Schicht-Erinnerungen.\n5. Passwort kannst du in der App unter "Mein Profil" oder auf der Login-Seite über "Passwort vergessen?" jederzeit verwalten.`
 
-  await sendEmail([email], "Willkommen bei Browns Personal App — Dein Zugang", inviteText, redirectTo)
+  const emailResult = await sendEmail([email], "Willkommen bei Browns Personal App — Dein Zugang", inviteText, redirectTo)
 
   await writeSecurityAudit(staff, "Einladung verarbeitet", { targetEmployeeId: employee.id, reinvited })
-  return jsonNoStore({ ok: true, reinvited })
+  return jsonNoStore({ ok: true, reinvited, emailSent: emailResult.success, emailError: emailResult.error })
 }

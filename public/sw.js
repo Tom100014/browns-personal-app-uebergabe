@@ -13,6 +13,11 @@ self.addEventListener("push", function (event) {
     data: { url: data.url || "/" },
     tag: data.tag || undefined,
     renotify: !!data.tag,
+    vibrate: [200, 100, 200, 100, 200],
+    silent: data.silent === true,
+    actions: [
+      { action: "open", title: "Öffnen" }
+    ]
   }
   event.waitUntil(self.registration.showNotification(title, options))
 })

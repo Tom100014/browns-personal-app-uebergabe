@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Loader2, KeyRound } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import Logo from "@/components/brand/Logo"
+import { PasswordInput } from "@/components/ui/PasswordInput"
 
 export default function WillkommenPage() {
   const router = useRouter()
@@ -63,21 +64,24 @@ export default function WillkommenPage() {
 
       {ready === true && (
         <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="text-xs text-gray-500 mb-1.5 block font-medium">Neues Passwort</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="Mindestens 8 Zeichen" autoComplete="new-password"
-              className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1.5 block font-medium">Passwort wiederholen</label>
-            <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
-              autoComplete="new-password"
-              className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
-          </div>
-          {error && <p className="text-xs text-red-600">{error}</p>}
-          <button type="submit" disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition disabled:opacity-50">
+          <PasswordInput
+            label="Neues Passwort"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Mindestens 8 Zeichen"
+            autoComplete="new-password"
+            showStrength={true}
+          />
+          <PasswordInput
+            label="Passwort wiederholen"
+            value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            placeholder="Passwort erneut eingeben"
+            autoComplete="new-password"
+          />
+          {error && <p className="text-xs font-medium text-red-600">{error}</p>}
+          <button type="submit" disabled={saving || !password || !confirm}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition shadow-sm disabled:opacity-50">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
             Passwort speichern &amp; starten
           </button>

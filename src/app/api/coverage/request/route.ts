@@ -5,6 +5,8 @@ import { getCurrentStaff } from "@/lib/staff"
 import { formatDayLabel, rankCandidates } from "@/lib/coverage"
 import { isUuid } from "@/lib/security-core"
 import { enforceRateLimit, jsonNoStore, rejectCrossOriginMutation, writeSecurityAudit } from "@/lib/security"
+import { sendEmail } from "@/lib/email"
+import { sendWhatsApp, normalizePhone } from "@/lib/whatsapp"
 import type { Employee, Shift } from "@/types"
 
 export const runtime = "nodejs"
@@ -139,6 +141,67 @@ async function sendCoveragePush(admin: SupabaseClient, opened: number) {
   if (dead.length > 0) await admin.from("push_subscriptions").delete().in("endpoint", dead)
 }
 
+async function dispatchMultiChannelNotifications(
+  admin: SupabaseClient,
+  targetShifts: Shift[],
+  employees: Employee[],
+): Promise<{ recipientCount: number; emailSent: boolean; whatsappSent: boolean }> {
+  if (targetShifts.length === 0 || employees.length === 0) {
+    return { recipientCount: 0, emailSent: false, whatsappSent: false }
+  }
+
+  const candidateMap = new Map<string, Employee>()
+  for (const shift of targetShifts) {
+    const origId = shift.employee_id
+    for (const emp of employees) {
+      if (emp.id !== origId && emp.notifications_enabled !== false) {
+        candidateMap.set(emp.id, emp)
+      }
+    }
+  }
+
+  const candidateList = Array.from(candidateMap.values())
+  if (candidateList.length === 0) return { recipientCount: 0, emailSent: false, whatsappSent: false }
+
+  const shiftInfo = targetShifts
+    .map(s => `• ${s.position}: ${formatDayLabel(s.date)} von ${hhmm(s.start_time)} bis ${hhmm(s.end_time)} Uhr`)
+    .join("\n")
+
+  const origEmp = employees.find(e => e.id === targetShifts[0]?.employee_id)
+  const subject = `🆘 ERSATZ GESUCHT: ${targetShifts[0]?.position || "Schicht"} am ${formatDayLabel(targetShifts[0]?.date || "")}`
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://browns-perso.vercel.app"
+  const textBody =
+    `Hallo,\n\n` +
+    `${origEmp?.name ?? "Ein Mitarbeiter"} fällt aus. Folgende Schicht(en) benötigen dringend eine Vertretung:\n\n` +
+    `${shiftInfo}\n\n` +
+    `Wer kann einspringen? Klicke hier, um die Schicht im Browns Perso Portal zu übernehmen:\n` +
+    `${baseUrl}/portal/vertretung\n\n` +
+    `Vielen Dank für deine Unterstützung!\n` +
+    `Dein Browns Lounge Team`
+
+  // 1. Send Emails
+  const emailTargets = candidateList.map(e => e.email).filter(Boolean)
+  let emailSent = false
+  if (emailTargets.length > 0) {
+    const res = await sendEmail(emailTargets, subject, textBody, "/portal/vertretung")
+    emailSent = res.success
+  }
+
+  // 2. Send WhatsApp
+  const phoneTargets = candidateList
+    .map(e => e.phone ? normalizePhone(e.phone) : null)
+    .filter((p): p is string => Boolean(p))
+
+  let whatsappSent = false
+  if (phoneTargets.length > 0) {
+    await sendWhatsApp(phoneTargets, subject, textBody)
+    whatsappSent = true
+  }
+
+  return { recipientCount: candidateList.length, emailSent, whatsappSent }
+}
+
 export async function POST(request: NextRequest) {
   const crossOrigin = rejectCrossOriginMutation(request)
   if (crossOrigin) return crossOrigin
@@ -220,6 +283,21 @@ export async function POST(request: NextRequest) {
     return jsonNoStore({ error: "Die Vertretungsanfrage konnte nicht vollständig gespeichert werden. Bitte erneut versuchen oder die Leitung informieren." }, { status: 500 })
   }
 
-  if (opened > 0) await sendCoveragePush(admin, opened)
-  return jsonNoStore({ ok: true, opened, duplicates })
+  let multiChannelResult = { recipientCount: 0, emailSent: false, whatsappSent: false }
+  if (opened > 0) {
+    await sendCoveragePush(admin, opened)
+    multiChannelResult = await dispatchMultiChannelNotifications(admin, targetShifts, (employees ?? []) as Employee[])
+  }
+
+  return jsonNoStore({
+    ok: true,
+    opened,
+    duplicates,
+    channels: {
+      push: true,
+      email: multiChannelResult.emailSent,
+      whatsapp: multiChannelResult.whatsappSent,
+    },
+    recipientCount: multiChannelResult.recipientCount,
+  })
 }

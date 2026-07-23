@@ -72,46 +72,96 @@ export default function MyCoverage({ requests, employees, selfId }: Props) {
     )
   }
 
+  const openRequests = requests.filter(r => r.status === "open")
+  const filledRequests = requests.filter(r => r.status === "filled")
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {actionError && (
         <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           {actionError}
         </div>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {requests.map(req => {
-          const orig = empById(req.original_employee_id)
-          const iOffered = offered[req.id]
-          const suggestedIsMe = req.suggested_employee_id === selfId
-          return (
-            <div key={req.id} className="bg-white border border-orange-200 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-                  <LifeBuoy className="w-4.5 h-4.5 text-orange-600" />
+
+      {/* Offene Anfragen */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="font-semibold text-gray-900 text-sm">Offene Vertretungen („Ersatz gesucht“)</h2>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">{openRequests.length}</span>
+        </div>
+
+        {openRequests.length === 0 ? (
+          <div className="bg-white border border-gray-200 rounded-xl py-8 text-center">
+            <UserCheck className="w-7 h-7 text-emerald-500 mx-auto mb-1.5" />
+            <p className="text-sm font-medium text-gray-700">Aktuell sind alle Schichten besetzt.</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {openRequests.map(req => {
+              const orig = empById(req.original_employee_id)
+              const iOffered = offered[req.id]
+              const suggestedIsMe = req.suggested_employee_id === selfId
+              return (
+                <div key={req.id} className="bg-white border border-orange-200 rounded-xl p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+                      <LifeBuoy className="w-4.5 h-4.5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{req.position}</p>
+                      <p className="text-xs text-gray-500">{orig ? `${orig.name} fällt aus` : "Schicht frei"}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 mb-3">
+                    <span className="inline-flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5 text-gray-400" />{formatDayLabel(req.date)}</span>
+                    <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-gray-400" />{hhmm(req.start_time)}–{hhmm(req.end_time)} Uhr</span>
+                  </div>
+                  {suggestedIsMe && !iOffered && (
+                    <p className="text-xs text-brand-700 bg-brand-50 rounded-lg px-2.5 py-1.5 mb-2">💡 Du wärst eine gute Besetzung für diese Schicht.</p>
+                  )}
+                  <button onClick={() => offer(req)} disabled={iOffered || busy === req.id}
+                    className={cn("w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition",
+                      iOffered ? "bg-emerald-100 text-emerald-700 cursor-default" : "bg-orange-600 hover:bg-orange-700 text-white")}>
+                    {iOffered ? <><Check className="w-4 h-4" /> Du hast zugesagt (Wartet auf Freigabe)</> : <><Hand className="w-4 h-4" /> Ich kann übernehmen</>}
+                  </button>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{req.position}</p>
-                  <p className="text-xs text-gray-500">{orig ? `${orig.name} fällt aus` : "Schicht frei"}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 mb-3">
-                <span className="inline-flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5 text-gray-400" />{formatDayLabel(req.date)}</span>
-                <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-gray-400" />{hhmm(req.start_time)}–{hhmm(req.end_time)} Uhr</span>
-              </div>
-              {suggestedIsMe && !iOffered && (
-                <p className="text-xs text-brand-700 bg-brand-50 rounded-lg px-2.5 py-1.5 mb-2">💡 Du wärst eine gute Besetzung für diese Schicht.</p>
-              )}
-              <button onClick={() => offer(req)} disabled={iOffered || busy === req.id}
-                className={cn("w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition",
-                  iOffered ? "bg-emerald-100 text-emerald-700 cursor-default" : "bg-orange-600 hover:bg-orange-700 text-white")}>
-                {iOffered ? <><Check className="w-4 h-4" /> Du hast zugesagt</> : <><Hand className="w-4 h-4" /> Ich kann übernehmen</>}
-              </button>
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Besetzte Vertretungen */}
+      {filledRequests.length > 0 && (
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="font-semibold text-gray-900 text-sm">✅ Übernommene Vertretungen</h2>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">{filledRequests.length}</span>
+          </div>
+
+          <div className="space-y-2.5">
+            {filledRequests.map(req => {
+              const filledEmp = empById(req.filled_by)
+              return (
+                <div key={req.id} className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <div className="truncate">
+                      <span className="font-bold text-gray-900">{req.position}</span>
+                      <span className="text-gray-500 mx-1.5">•</span>
+                      <span className="text-gray-600">{formatDayLabel(req.date)} ({hhmm(req.start_time)}–{hhmm(req.end_time)} Uhr)</span>
+                    </div>
+                  </div>
+                  <span className="font-medium text-emerald-800 bg-white border border-emerald-200 px-2.5 py-1 rounded-lg flex-shrink-0">
+                    {filledEmp ? `Übernommen von ${filledEmp.name}` : "Besetzt"}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

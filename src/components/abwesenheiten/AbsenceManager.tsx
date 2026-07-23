@@ -79,12 +79,13 @@ export default function AbsenceManager({ absences: initial, employees }: Props) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ absenceId: absence.id }),
       })
-      const result = await response.json().catch(() => null) as { opened?: number; error?: string } | null
+      const result = await response.json().catch(() => null) as { opened?: number; recipientCount?: number; error?: string } | null
       if (!response.ok) throw new Error(result?.error || "Automatische Ersatzsuche fehlgeschlagen")
       const gaps = Number(result?.opened ?? 0)
+      const recs = Number(result?.recipientCount ?? 0)
       if (gaps > 0) {
         const emp = employees.find(e => e.id === absence.employee_id)
-        setNotice(`${gaps} Schicht${gaps > 1 ? "en" : ""} von ${emp?.name ?? "diesem Mitarbeiter"} betroffen. Die Ersatz-Anfrage steht im Team-Chat.`)
+        setNotice(`${gaps} Schicht${gaps > 1 ? "en" : ""} von ${emp?.name ?? "diesem Mitarbeiter"} betroffen. ${recs > 0 ? recs : "Alle geeigneten"} Kolleg:innen wurden automatisch zeitgleich per App, E-Mail und WhatsApp informiert.`)
       } else {
         setNotice("Abwesenheit gespeichert. Es sind keine offenen Schichten betroffen.")
       }

@@ -11,7 +11,7 @@ export default async function PortalVertretung() {
   const [{ data: coverage }, { data: employees }] = await Promise.all([
     supabase.from("coverage_requests")
       .select("*, offers:coverage_offers(*)")
-      .eq("status", "open")
+      .in("status", ["open", "filled"])
       .gte("date", today)
       .order("date"),
     supabase.from("employee_directory").select("id,name,color,position,role").order("name"),

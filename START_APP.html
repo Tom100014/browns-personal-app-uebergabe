@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>START APP — Browns Personal App</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 24px;
+      padding: 45px 35px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .logo {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      box-shadow: 0 0 25px rgba(225, 29, 72, 0.6);
+      margin-bottom: 20px;
+      border: 3px solid #ffffff;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      margin: 0 0 8px;
+    }
+    p {
+      color: #94a3b8;
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+    /* ROT MARKIERTER BUTTON */
+    .start-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      padding: 18px 24px;
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      text-decoration: none;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(220, 38, 38, 0.5), 0 0 15px rgba(220, 38, 38, 0.8);
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: 2px solid #ef4444;
+      box-sizing: border-box;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .start-btn:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 15px 40px rgba(220, 38, 38, 0.7), 0 0 25px rgba(239, 68, 68, 1);
+    }
+    .secondary-link {
+      display: inline-block;
+      margin-top: 20px;
+      color: #64748b;
+      font-size: 12px;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="public/brand/browns-round-logo.png" alt="Browns Logo" class="logo" onerror="this.style.display='none'">
+    <h1>Browns Personal App</h1>
+    <p>Klicke auf den roten Button, um die App im Browser zu öffnen:</p>
+
+    <!-- ROTER BUTTON: START APP -->
+    <a href="https://browns-perso-app.vercel.app" class="start-btn" target="_blank">
+      🚀 START APP
+    </a>
+
+    <a href="http://localhost:3000" class="secondary-link" target="_blank">
+      Lokaler Server (localhost:3000)
+    </a>
+  </div>
+</body>
+</html>

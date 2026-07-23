@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { LifeBuoy, Check, Sparkles, Clock, CalendarDays, X, UserCheck, AlertTriangle } from "lucide-react"
+import { LifeBuoy, Check, Sparkles, Clock, CalendarDays, X, UserCheck, AlertTriangle, Star } from "lucide-react"
 import { format } from "date-fns"
 import { createClient } from "@/lib/supabase"
 import { useRealtimeRefresh } from "@/lib/realtime"
-import { formatDayLabel } from "@/lib/coverage"
+import { formatDayLabel, evaluateCandidateSuitability } from "@/lib/coverage"
+import { cn } from "@/lib/utils"
 import type { Employee, CoverageRequest } from "@/types"
 
 interface Props {
@@ -162,36 +163,86 @@ export default function CoverageBoard({ requests: initial, employees }: Props) {
                     </div>
                   )}
 
-                  {/* Zusagen aus dem Chat */}
+                  {/* Zusagen aus dem Team & KI-Empfehlung für Leitung */}
                   <div className="mt-3.5">
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                      Zusagen aus dem Team ({offers.length})
+                      Bewerber / Zusagen aus dem Team ({offers.length})
                     </p>
                     {offers.length === 0 ? (
                       <p className="text-xs text-gray-400">Noch keine Rückmeldung. Anfrage läuft im Team-Chat.</p>
                     ) : (
                       <div className="space-y-2">
-                        {offers.map(o => {
-                          const e = empById(o.employee_id)
-                          return (
-                            <div key={o.id} className="flex items-center justify-between gap-2 rounded-xl bg-white/70 border border-gray-200/80 px-3 py-2">
-                              <span className="inline-flex items-center gap-2 text-xs font-semibold text-charcoal">
-                                <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm"
-                                  style={{ backgroundColor: e?.color ?? "#c74806" }}>
-                                  {e?.name?.split(" ").map(n => n[0]).join("").slice(0,2)}
-                                </span>
-                                {e?.name ?? "—"}
-                                {e?.position === req.position && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700">passt</span>
+                        {(() => {
+                          const evaluated = offers.map(o => {
+                            const emp = empById(o.employee_id)
+                            const res = emp ? evaluateCandidateSuitability(emp, req) : null
+                            return { offer: o, emp, res }
+                          }).sort((a, b) => (b.res?.score ?? 0) - (a.res?.score ?? 0))
+
+                          return evaluated.map(({ offer: o, emp, res }, idx) => {
+                            const isTop = evaluated.length > 1 && idx === 0 && (res?.score ?? 0) > 50
+
+                            return (
+                              <div
+                                key={o.id}
+                                className={cn(
+                                  "rounded-xl p-3 border transition-all",
+                                  isTop
+                                    ? "bg-amber-50/80 border-amber-300 shadow-sm"
+                                    : "bg-white/70 border-gray-200/80"
                                 )}
-                              </span>
-                              <button onClick={() => assign(req, o.employee_id)} disabled={busy === req.id}
-                                className="spring-press text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition disabled:opacity-50">
-                                Zuweisen
-                              </button>
-                            </div>
-                          )
-                        })}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm shrink-0"
+                                      style={{ backgroundColor: emp?.color ?? "#c74806" }}
+                                    >
+                                      {emp?.name?.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-xs font-bold text-charcoal">{emp?.name ?? "—"}</span>
+                                        {isTop && (
+                                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500 text-white shadow-xs">
+                                            <Star className="w-3 h-3 fill-current" /> Empfehlung der KI
+                                          </span>
+                                        )}
+                                        {res?.badge && !isTop && (
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-800">
+                                            {res.badge}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    onClick={() => assign(req, o.employee_id)}
+                                    disabled={busy === req.id}
+                                    className="spring-press text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition disabled:opacity-50 shrink-0"
+                                  >
+                                    Zuweisen
+                                  </button>
+                                </div>
+
+                                {/* Warum dieser Kandidat vorgeschlagen wird */}
+                                {res && res.reasons.length > 0 && (
+                                  <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap gap-1">
+                                    {res.reasons.map((reason, rIdx) => (
+                                      <span
+                                        key={rIdx}
+                                        className="text-[10px] px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-medium"
+                                      >
+                                        • {reason}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })
+                        })()}
                       </div>
                     )}
                   </div>

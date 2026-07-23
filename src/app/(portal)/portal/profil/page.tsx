@@ -6,6 +6,7 @@ import { format } from "date-fns"
 import PushToggle from "@/components/push/PushToggle"
 import NotifyMuteToggle from "@/components/portal/NotifyMuteToggle"
 import PasswordChange from "@/components/portal/PasswordChange"
+import AvatarUpload from "@/components/portal/AvatarUpload"
 
 export default async function PortalProfil() {
   const staff = await getCurrentStaff()
@@ -34,15 +35,7 @@ export default async function PortalProfil() {
         <p className="text-gray-500 text-sm mt-0.5">Deine Daten — Änderungen bitte bei der Leitung melden</p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0" style={{ backgroundColor: me.color }}>
-          {initials}
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">{me.name}</h2>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 font-medium">{me.position}</span>
-        </div>
-      </div>
+      <AvatarUpload employee={me} />
 
       <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-50 mb-4">
         {rows.map(({ icon: Icon, label, value }) => (
