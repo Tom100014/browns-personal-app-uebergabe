@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { TrendingUp, Euro, Percent, Save, Check, Calendar, Download, Printer, AlertCircle, BarChart3 } from "lucide-react"
+import { TrendingUp, Euro, Percent, Save, Check, Calendar, Download, BarChart3 } from "lucide-react"
 import { entryHours, formatEuro, formatHours } from "@/lib/hours"
 import { createClient } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
