@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { Download, TrendingUp, Clock, Euro, Percent, Save, Check, Plus, Trash2, FileSpreadsheet, ChevronDown } from "lucide-react"
+import { Download, TrendingUp, Clock, Euro, Percent, Save, Check, Plus, Trash2, FileSpreadsheet, ChevronDown, Printer } from "lucide-react"
 import { entryHours, shiftHours, formatHours, formatEuro } from "@/lib/hours"
 import { createClient } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import type { Employee } from "@/types"
 import { format } from "date-fns"
 import { de } from "date-fns/locale"
+import DailyRevenueManager from "./DailyRevenueManager"
 
 type Entry = { employee_id: string; date: string; clock_in: string; clock_out?: string | null; break_minutes?: number | null }
 type ShiftRow = { employee_id: string | null; date: string; start_time: string; end_time: string }
@@ -256,6 +257,10 @@ export default function PayrollReport({ employees, entries, shifts, absences }: 
           {months.map(m => <option key={m.value} value={m.value} className="capitalize">{m.label}</option>)}
         </select>
         <div className="flex items-center gap-2">
+          <button onClick={() => window.print()}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+            <Printer className="w-4 h-4" /> PDF / Drucken
+          </button>
           <button onClick={exportCsv}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
             <Download className="w-4 h-4" /> CSV
@@ -315,6 +320,17 @@ export default function PayrollReport({ employees, entries, shifts, absences }: 
           </div>
         ))}
       </div>
+
+      {/* Tages-Umsatzerfassung & Diagramme */}
+      <DailyRevenueManager
+        month={month}
+        employees={employees}
+        entries={entries}
+        onMonthlyRevenueChange={newRev => {
+          setRevenue(newRev)
+          setRevInput(newRev ? String(newRev).replace(".", ",") : "")
+        }}
+      />
 
       {/* Umsatz-Eingabe (Basis für Personalkosten-Quote; später aus Kassensystem) */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
