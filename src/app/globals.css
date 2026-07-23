@@ -92,39 +92,99 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  body {
+    background-color: #0b0f19 !important;
+    color: #f8fafc !important;
+    font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
   html { @apply font-sans; }
 
-  dialog { color: inherit; }
+  dialog {
+    color: #f8fafc !important;
+    background-color: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  }
 
-  button,
-  [role="button"],
+  /* 1-zu-1 Dark Glassmorphism Input & Select Controls */
   input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-  select {
+  select,
+  textarea {
     min-height: 2.75rem;
+    background-color: rgba(30, 41, 59, 0.8) !important;
+    color: #f8fafc !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 0.75rem !important;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: #f59e0b !important;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3) !important;
   }
 
   ::placeholder {
-    color: var(--muted-foreground) !important;
+    color: #94a3b8 !important;
     opacity: 1;
   }
 
-  h1 {
+  h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display), var(--font-sans), Arial, sans-serif;
     letter-spacing: 0;
     font-weight: 760;
+    color: #f8fafc !important;
   }
 
   :focus-visible {
-    outline: 3px solid var(--color-brand-800) !important;
+    outline: 3px solid #f59e0b !important;
     outline-offset: 3px !important;
-    box-shadow: 0 0 0 2px white !important;
+    box-shadow: 0 0 0 2px #0b0f19 !important;
     border-radius: 4px;
   }
 
   :focus,
   :target {
     scroll-margin-block: 6rem;
+  }
+
+  /* Automatic 1-zu-1 Dark Glass Card Overrides */
+  .bg-white,
+  .bg-gray-50,
+  .bg-slate-50,
+  .bg-brand-50 {
+    background-color: rgba(19, 27, 46, 0.75) !important;
+    color: #f8fafc !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  }
+
+  .text-gray-900,
+  .text-gray-800,
+  .text-slate-950,
+  .text-slate-900,
+  .text-charcoal {
+    color: #f8fafc !important;
+  }
+
+  .text-gray-700,
+  .text-gray-600,
+  .text-slate-700,
+  .text-slate-600 {
+    color: #cbd5e1 !important;
+  }
+
+  .text-gray-500,
+  .text-gray-400,
+  .text-slate-500,
+  .text-slate-400 {
+    color: #94a3b8 !important;
+  }
+
+  .border-gray-200,
+  .border-gray-300,
+  .border-gray-100,
+  .border-slate-200,
+  .border-border {
+    border-color: rgba(255, 255, 255, 0.1) !important;
   }
 }
 
