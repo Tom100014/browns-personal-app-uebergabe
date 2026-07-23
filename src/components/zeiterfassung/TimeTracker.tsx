@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Play, Square, Wifi, WifiOff, AlertTriangle } from "lucide-react"
+import { Play, Square, Wifi, WifiOff, AlertTriangle, Fingerprint } from "lucide-react"
 import { useRealtimeRefresh } from "@/lib/realtime"
 import type { TimeEntry, Employee } from "@/types"
 import { cn, calcHours } from "@/lib/utils"
@@ -132,19 +132,19 @@ export default function TimeTracker({ entries: initialEntries, employees, locati
             </>
           ) : (
             <>
-              {/* Fluid Interactive Stamp Button */}
-              <div className="relative my-3">
-                <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl animate-pulse pointer-events-none" />
+              {/* Fluid Interactive Stamp Button (V2 Digital Punch Clock) */}
+              <div className="relative my-4 flex justify-center">
+                <div className="absolute inset-0 rounded-full bg-amber-500/25 blur-2xl animate-pulse pointer-events-none" />
                 <button onClick={clockIn} disabled={loading || !selectedEmployee}
                   aria-label="Einstempeln"
-                  className="spring-press relative w-40 h-40 rounded-full bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white shadow-2xl
-                    flex flex-col items-center justify-center gap-2 border-4 border-white/40
-                    hover:shadow-emerald-500/30 disabled:opacity-50">
-                  <Play className="w-10 h-10 ml-1" fill="currentColor" />
-                  <span className="text-sm font-bold tracking-wide uppercase">Einstempeln</span>
+                  className="spring-press relative w-44 h-44 rounded-full bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 text-white shadow-2xl shadow-amber-600/40
+                    flex flex-col items-center justify-center gap-1.5 border-4 border-white/50
+                    hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-50 group">
+                  <Fingerprint className="w-10 h-10 text-white/90 group-hover:scale-110 transition-transform" />
+                  <span className="text-xs font-extrabold tracking-wider uppercase bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">Einstempeln</span>
                 </button>
               </div>
-              <p className="text-xs font-medium text-gray-500 mt-4">
+              <p className="text-xs font-semibold text-gray-500 mt-2">
                 {totalToday > 0 ? `Heute bereits ${totalToday.toLocaleString("de-DE")} h erfasst` : "Tippe zum Schichtbeginn im Café"}
               </p>
             </>
