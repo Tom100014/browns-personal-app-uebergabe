@@ -2,12 +2,13 @@
 
 import { useState, type KeyboardEvent } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Save, Check, IdCard, FileText, Clock, CalendarOff, FileSignature } from "lucide-react"
+import { ArrowLeft, Save, Check, IdCard, FileText, Clock, CalendarOff, FileSignature, ShieldCheck } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { entryHours, formatHours, formatEuro } from "@/lib/hours"
 import DocumentManager from "./DocumentManager"
 import ContractGenerator from "./ContractGenerator"
+import EmployeeSecretFile from "./EmployeeSecretFile"
 import type { Employee, EmployeeDocument } from "@/types"
 import { format } from "date-fns"
 import { de } from "date-fns/locale"
@@ -23,7 +24,7 @@ const EMPLOYMENT = ["Vollzeit", "Teilzeit", "Minijob", "Werkstudent", "Aushilfe"
 
 const ABSENCE_LABELS: Record<string, string> = { urlaub: "Urlaub", krank: "Krank", frei: "Frei", sonderurlaub: "Sonderurlaub" }
 
-type TimeEntry = { id: string; date: string; clock_in: string; clock_out?: string | null; break_minutes?: number | null }
+type TimeEntry = { id: string; date: string; clock_in: string; clock_out?: string | null; break_minutes?: number | null; shift_revenue?: number | null }
 type Absence = { id: string; type: string; start_date: string; end_date: string; status: string; note?: string }
 
 interface Props {
@@ -33,7 +34,7 @@ interface Props {
   absences: Absence[]
 }
 
-type Tab = "stammdaten" | "vertrag" | "dokumente" | "zeiten" | "abwesenheiten"
+type Tab = "stammdaten" | "vertrag" | "dokumente" | "zeiten" | "abwesenheiten" | "akte"
 
 export default function EmployeeDetail({ employee, documents, timeEntries, absences }: Props) {
   const router = useRouter()
@@ -118,6 +119,7 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
     { id: "dokumente", label: "Dokumente", icon: FileText, count: documents.length },
     { id: "zeiten", label: "Arbeitszeiten", icon: Clock, count: timeEntries.length },
     { id: "abwesenheiten", label: "Abwesenheiten", icon: CalendarOff, count: absences.length },
+    { id: "akte", label: "🔒 KI-Verhaltensakte", icon: ShieldCheck },
   ]
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -321,6 +323,13 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
             </div>
           )}
         </div>
+        </div>
+      )}
+
+      {/* KI-Verhaltensakte */}
+      {tab === "akte" && (
+        <div id="employee-panel-akte" role="tabpanel" aria-labelledby="employee-tab-akte" tabIndex={0}>
+          <EmployeeSecretFile employee={employee} timeEntries={timeEntries} absences={absences} />
         </div>
       )}
     </div>

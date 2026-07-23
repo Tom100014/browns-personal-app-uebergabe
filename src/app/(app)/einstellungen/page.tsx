@@ -60,12 +60,17 @@ export default function EinstellungenPage() {
   const [savingKnow, setSavingKnow] = useState(false)
   const [savedKnow, setSavedKnow] = useState(false)
 
+  const [requireRevenue, setRequireRevenue] = useState(true)
+  const [savingRevenue, setSavingRevenue] = useState(false)
+  const [savedRevenue, setSavedRevenue] = useState(false)
+
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const { data } = await supabase.from("settings").select("key,value").in("key", ["wifi_ip", "opening_hours", "cafe_info", "automation", "knowledge"])
+      const { data } = await supabase.from("settings").select("key,value").in("key", ["wifi_ip", "opening_hours", "cafe_info", "automation", "knowledge", "require_shift_revenue"])
       for (const row of data ?? []) {
         if (row.key === "wifi_ip") setWifiIp(row.value)
+        if (row.key === "require_shift_revenue") setRequireRevenue(row.value !== "false")
         if (row.key === "opening_hours" && row.value) {
           try { setHours({ ...DEFAULT_HOURS, ...JSON.parse(row.value) }) } catch {}
         }
@@ -140,11 +145,60 @@ export default function EinstellungenPage() {
     setTimeout(() => setSavedKnow(false), 2000)
   }
 
+  async function saveRevenueSetting() {
+    setSavingRevenue(true)
+    const supabase = createClient()
+    await supabase.from("settings").upsert({ key: "require_shift_revenue", value: requireRevenue ? "true" : "false" })
+    setSavingRevenue(false); setSavedRevenue(true)
+    setTimeout(() => setSavedRevenue(false), 2000)
+  }
+
   return (
     <div className="w-full min-w-0 max-w-2xl p-4 sm:p-6">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Einstellungen</h1>
         <p className="text-gray-500 text-sm mt-0.5">Browns Café Konfiguration</p>
+      </div>
+
+      {/* Umsatz-Pflichtschalter beim Ausstempeln */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+            <span className="text-emerald-700 font-extrabold text-base">€</span>
+          </div>
+          <div>
+            <h2 className="font-semibold text-gray-900 text-sm">Schichtumsatz-Pflicht beim Ausstempeln</h2>
+            <p className="text-gray-500 text-xs mt-1 leading-relaxed">
+              Lege fest, ob Mitarbeiter im Service beim Ausstempeln ihren mit der Kasse erbrachten Schichtumsatz in € zwingend angeben müssen.
+            </p>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-200/80 mb-4 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={requireRevenue}
+            onChange={e => setRequireRevenue(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
+          />
+          <div className="text-xs">
+            <span className="font-bold text-gray-900 block">Kassenumsatz als Pflichtfeld erzwingen</span>
+            <span className="text-gray-500">
+              {requireRevenue
+                ? "Aktiviert — Ausstempeln ist nur nach Eingabe des Schichtumsatzes möglich."
+                : "Deaktiviert — Ausstempeln ist auch ohne Umsatzangabe erlaubt."}
+            </span>
+          </div>
+        </label>
+
+        <button
+          type="button"
+          onClick={saveRevenueSetting}
+          disabled={savingRevenue}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition disabled:opacity-50"
+        >
+          {savedRevenue ? <><Check className="w-4 h-4" /> Gespeichert</> : <><Save className="w-4 h-4" /> Einstellung speichern</>}
+        </button>
       </div>
 
       {/* System-Anschlüsse */}

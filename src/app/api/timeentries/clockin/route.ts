@@ -103,11 +103,13 @@ export async function PATCH(request: NextRequest) {
     return jsonNoStore({ error: "Gültige entryId und Pausenzeit erforderlich" }, { status: 400 })
   }
 
-  if (isNaN(shiftRevenue) || shiftRevenue < 0) {
+  const supabase = await createClient()
+  const { data: revSetting } = await supabase.from("settings").select("value").eq("key", "require_shift_revenue").maybeSingle()
+  const requireRevenueSetting = (revSetting?.value ?? "true") !== "false"
+
+  if (requireRevenueSetting && (isNaN(shiftRevenue) || shiftRevenue < 0 || shiftRevenueRaw === undefined || shiftRevenueRaw === null || shiftRevenueRaw === "")) {
     return jsonNoStore({ error: "Bitte gib deinen erbrachten Schichtumsatz in € an (Pflichtangabe beim Ausstempeln)." }, { status: 400 })
   }
-
-  const supabase = await createClient()
   const { data: entry, error: lookupError } = await supabase.from("time_entries")
     .select("id,employee_id,clock_in,clock_out,break_minutes")
     .eq("id", entryId)

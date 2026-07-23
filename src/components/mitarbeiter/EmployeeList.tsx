@@ -348,6 +348,9 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end items-center">
+                      <Link href={`/mitarbeiter/${emp.id}`} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition mr-1" title="Geheime KI-Verhaltensakte öffnen">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> KI-Akte
+                      </Link>
                       {(canManageAdmins || emp.role !== "admin") && <button onClick={() => openAccess(emp)}
                         className={cn("inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition mr-1",
                           emp.auth_user_id ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "border-brand-200 text-brand-700 hover:bg-brand-50")}
