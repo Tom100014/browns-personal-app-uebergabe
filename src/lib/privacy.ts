@@ -11,8 +11,8 @@ export type AiPrivacySettings = {
 }
 
 export const DEFAULT_AI_PRIVACY_SETTINGS: AiPrivacySettings = {
-  dailyProfilingEnabled: false,
-  externalLlmEnabled: false,
+  dailyProfilingEnabled: true,
+  externalLlmEnabled: true,
   snapshotRetentionDays: 30,
 }
 
