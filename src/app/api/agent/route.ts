@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
   const limited = await enforceRateLimit(request, "agent", 20, 10 * 60_000, staff.userId)
   if (limited) return limited
 
-  const { question } = await request.json().catch(() => ({}))
+  const { question, history } = await request.json().catch(() => ({}))
   if (typeof question !== "string" || !question.trim() || question.length > 4_000) {
     return jsonNoStore({ error: "Gültige Frage erforderlich" }, { status: 400 })
   }
@@ -135,7 +135,13 @@ Offene Vertretungen: ${coverageRows.length}
 
 ${safeOpsContext}`
 
-  const { text, error } = await askLLM(system, sanitizeForExternalLlm(String(question)))
+  const historyContext = Array.isArray(history) && history.length > 0
+    ? "\n\nBisheriger Konversationsverlauf im Thread (Memory):\n" + history.slice(-8).map((m: { role: string; text?: string }) => `${m.role === "user" ? "Benutzer" : "Browns Agent"}: ${sanitizeForExternalLlm(String(m.text || ""))}`).join("\n")
+    : ""
+
+  const fullPrompt = `${sanitizeForExternalLlm(String(question))}${historyContext}`
+
+  const { text, error } = await askLLM(system, fullPrompt)
   
   let answerText = text
   if (error || !answerText) {

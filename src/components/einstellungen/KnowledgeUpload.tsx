@@ -238,15 +238,27 @@ export default function KnowledgeUpload() {
             Belege, Arbeitslisten, Dienstpläne, Notizen und Mitarbeiter-Signale werden mit Tags gespeichert. Browns Agent und Team-Chart ziehen daraus Kontext für Planung, Verträge, Vertretung und Personalentscheidungen.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={learnNow}
-          disabled={learning}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-charcoal px-4 py-2.5 text-xs font-bold text-white shadow-card transition hover:bg-charcoal-light disabled:opacity-50"
-        >
-          {learning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-          Heute lernen
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href="/api/knowledge/export"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 px-4 py-2.5 text-xs font-bold text-slate-800 shadow-sm transition"
+            title="Wissensdatenbank als JSON-Datei herunterladen (Backup auf PC)"
+          >
+            <Download className="h-4 w-4 text-brand-600" />
+            Wissen herunterladen
+          </a>
+          <button
+            type="button"
+            onClick={learnNow}
+            disabled={learning}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-charcoal px-4 py-2.5 text-xs font-bold text-white shadow-card transition hover:bg-charcoal-light disabled:opacity-50"
+          >
+            {learning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4 text-amber-400" />}
+            Heute proaktiv lernen
+          </button>
+        </div>
       </div>
 
       {learnText && (

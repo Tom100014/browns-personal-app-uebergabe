@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bot, Send, Loader2, Sparkles, CalendarPlus, Check, X, Megaphone, RefreshCw } from "lucide-react"
+import { Bot, Send, Loader2, Sparkles, CalendarPlus, Check, X, Megaphone, RefreshCw, Download } from "lucide-react"
 
 const SUGGESTIONS = [
   "Plane mir die kommende Woche nach Stationen.",
@@ -42,10 +42,15 @@ export default function Assistant() {
 
   async function ask(q: string) {
     if (!q.trim() || loading) return
-    setMessages(prev => [...prev, { role: "user", text: q }])
+    const currentThread = [...messages, { role: "user" as const, text: q }]
+    setMessages(currentThread)
     setInput(""); setLoading(true)
     try {
-      const res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q }) })
+      const res = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, history: currentThread.slice(-10) }),
+      })
       const data = await res.json()
       if (data.error === "not_configured") { setNotConfigured(true); setMessages(prev => prev.slice(0, -1)) }
       else setMessages(prev => [...prev, { role: "assistant", text: data.answer || data.error || "Keine Antwort." }])
@@ -174,9 +179,17 @@ export default function Assistant() {
         })}
         {loading && <div className="flex gap-2.5"><div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center"><Bot className="w-4 h-4 text-white" /></div><div className="bg-gray-100 rounded-2xl px-3.5 py-2"><Loader2 className="w-4 h-4 animate-spin text-gray-400" /></div></div>}
       </div>
-      <form onSubmit={e => { e.preventDefault(); ask(input) }} className="border-t border-gray-100 p-3 flex gap-2">
-        <button type="button" onClick={learnNow} disabled={loading} title="Auslastung analysieren & lernen"
-          className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition disabled:opacity-40"><Sparkles className="w-4 h-4" /></button>
+      <form onSubmit={e => { e.preventDefault(); ask(input) }} className="border-t border-gray-100 p-3 flex gap-2 items-center">
+        <button type="button" onClick={learnNow} disabled={loading} title="Auslastung analysieren & proaktiv lernen"
+          className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition disabled:opacity-40 flex items-center gap-1 text-xs font-semibold">
+          <Sparkles className="w-4 h-4 text-amber-500" />
+          <span className="hidden sm:inline">Proaktiv Lernen</span>
+        </button>
+        <a href="/api/knowledge/export" target="_blank" rel="noopener noreferrer" title="Wissensdatenbank herunterladen (JSON-Backup auf PC)"
+          className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition flex items-center gap-1 text-xs font-semibold">
+          <Download className="w-4 h-4 text-brand-600" />
+          <span className="hidden sm:inline">Wissen Exportieren</span>
+        </a>
         <input value={input} onChange={e => setInput(e.target.value)} placeholder="Frage zur Planung stellen…"
           className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500" />
         <button type="submit" disabled={loading || !input.trim()} className="p-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white transition disabled:opacity-40"><Send className="w-4 h-4" /></button>
