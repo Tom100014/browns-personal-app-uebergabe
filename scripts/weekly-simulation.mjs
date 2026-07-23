@@ -45,6 +45,10 @@ async function runWeeklySimulation() {
 
   console.log(`   -> Bar/Theke: ${baristas.length}, Küche: ${kitchen.length}, Service: ${service.length}, Leitung: ${managers.length}`)
 
+  // Clear existing entries for this test week to allow clean re-simulation
+  await supabase.from("time_entries").delete().gte("date", "2026-07-20").lte("date", "2026-07-26")
+  await supabase.from("shifts").delete().gte("date", "2026-07-20").lte("date", "2026-07-26")
+
   // 2. Generate Shifts & Time Entries for the whole week
   console.log("\n2. Generating weekly shift schedules & time entries...")
   let totalShifts = 0
@@ -138,7 +142,12 @@ async function runWeeklySimulation() {
       const breakMins = 30
       const hours = 7.6
 
-      const { data: entry } = await supabase.from("time_entries").insert({
+      // Calculate realistic shift revenue for service & bar staff
+      const isRevenueRole = position.includes("Service") || position.includes("Bar") || position.includes("Theke")
+      const baseRev = day.revenue / dailyStaff.length
+      const shiftRevenue = isRevenueRole ? Math.round((baseRev + (idx * 35) + (day.date === "2026-07-25" ? 180 : 0)) * 100) / 100 : 0
+
+      const { data: entry, error: entryErr } = await supabase.from("time_entries").insert({
         employee_id: emp.id,
         date: day.date,
         clock_in: clockIn,
@@ -149,7 +158,11 @@ async function runWeeklySimulation() {
         created_at: new Date().toISOString(),
       }).select().single()
 
-      if (entry) totalEntries++
+      if (entryErr) {
+        console.error(`Error inserting entry for ${emp.name} on ${day.date}:`, entryErr.message)
+      } else {
+        totalEntries++
+      }
     }
 
     // Insert daily revenue
