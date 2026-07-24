@@ -73,30 +73,40 @@ export default function EmployeeDetail({ employee, documents, timeEntries, absen
 
   async function save() {
     setSaving(true)
-    const supabase = createClient()
-    // Basic (team-visible) fields on employees
-    await supabase.from("employees").update({
-      name: form.name,
-      email: form.email,
-      phone: form.phone || null,
-      position: form.position,
-      role: form.role,
-      employment_type: form.employment_type || null,
-      start_date: form.start_date || null,
-      personnel_number: form.personnel_number || null,
-    }).eq("id", employee.id)
-    // Sensitive fields in the protected, management-only table
-    await supabase.from("employee_private").upsert({
-      employee_id: employee.id,
-      hourly_wage: form.hourly_wage ? Number(form.hourly_wage.replace(",", ".")) : null,
-      weekly_hours: form.weekly_hours ? Number(form.weekly_hours.replace(",", ".")) : null,
-      vacation_days_per_year: form.vacation_days_per_year ? Math.round(Number(form.vacation_days_per_year)) : null,
-      birth_date: form.birth_date || null,
-      address: form.address || null,
-      notes: form.notes || null,
-    })
-    setSaving(false); setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    try {
+      const res = await fetch("/api/employee/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          id: employee.id,
+          name: form.name,
+          email: form.email,
+          phone: form.phone || null,
+          position: form.position,
+          role: form.role,
+          employment_type: form.employment_type || null,
+          start_date: form.start_date || null,
+          personnel_number: form.personnel_number || null,
+          hourly_wage: form.hourly_wage || null,
+          weekly_hours: form.weekly_hours || null,
+          vacation_days_per_year: form.vacation_days_per_year || null,
+          birth_date: form.birth_date || null,
+          address: form.address || null,
+          notes: form.notes || null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        alert("Fehler beim Speichern der Mitarbeiterdaten: " + (data.error || "Unbekannter Fehler"))
+      } else {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      }
+    } catch {
+      alert("Netzwerkfehler beim Speichern.")
+    }
+    setSaving(false)
   }
 
   const totalHours = timeEntries.reduce((sum, e) => sum + entryHours(e), 0)

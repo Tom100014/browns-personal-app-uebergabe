@@ -78,26 +78,44 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
 
   async function save() {
     setSaving(true)
-    const supabase = createClient()
-    const wage = form.hourly_wage ? Number(form.hourly_wage.replace(",", ".")) : null
-    const empPayload = {
-      name: form.name, email: form.email, phone: form.phone || null,
-      position: form.position, role: editing?.id === primaryAdminId ? "admin" : form.role,
+    const action = editing ? "update" : "create"
+    const payload = {
+      action,
+      ...(editing ? { id: editing.id } : {}),
+      name: form.name,
+      email: form.email,
+      phone: form.phone || null,
+      position: form.position,
+      role: editing?.id === primaryAdminId ? "admin" : form.role,
       employment_type: form.employment_type || null,
       color: form.color,
+      hourly_wage: form.hourly_wage || null,
     }
-    let empId: string | null = null
-    if (editing) {
-      const { data } = await supabase.from("employees").update(empPayload).eq("id", editing.id).select().single()
-      empId = editing.id
-      if (data) setEmployees(prev => prev.map(e => e.id === editing.id ? { ...(data as Employee), hourly_wage: wage } : e))
-    } else {
-      const { data } = await supabase.from("employees").insert({ ...empPayload, created_at: new Date().toISOString() }).select().single()
-      if (data) { empId = data.id; setEmployees(prev => [...prev, { ...(data as Employee), hourly_wage: wage }]) }
+
+    try {
+      const res = await fetch("/api/employee/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        alert("Fehler beim Speichern des Mitarbeiters: " + (data.error || "Unbekannter Fehler"))
+      } else if (data.employee) {
+        if (editing) {
+          setEmployees(prev => prev.map(e => e.id === editing.id ? { ...e, ...data.employee } : e))
+        } else {
+          setEmployees(prev => [...prev, data.employee])
+        }
+        setShowForm(false)
+        setEditing(null)
+        setForm(emptyForm)
+      }
+    } catch {
+      alert("Netzwerkfehler beim Speichern des Mitarbeiters.")
     }
-    // Wage is protected: stored in employee_private (management only).
-    if (empId) await supabase.from("employee_private").upsert({ employee_id: empId, hourly_wage: wage })
-    setSaving(false); setShowForm(false); setEditing(null); setForm(emptyForm)
+    setSaving(false)
   }
 
   async function sendInvite() {
@@ -167,9 +185,21 @@ export default function EmployeeList({ employees: initial, primaryAdminId = null
       return
     }
     if (!confirm("Mitarbeiter wirklich löschen?")) return
-    const supabase = createClient()
-    await supabase.from("employees").delete().eq("id", id)
-    setEmployees(prev => prev.filter(e => e.id !== id))
+    try {
+      const res = await fetch("/api/employee/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        alert("Fehler beim Löschen des Mitarbeiters: " + (data.error || "Unbekannter Fehler"))
+      } else {
+        setEmployees(prev => prev.filter(e => e.id !== id))
+      }
+    } catch {
+      alert("Netzwerkfehler beim Löschen des Mitarbeiters.")
+    }
   }
 
   return (

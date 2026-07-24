@@ -55,14 +55,15 @@ export default function AvatarUpload({ employee, onAvatarChange, readOnly = fals
           return
         }
 
-        const supabase = createClient()
-        const { error: dbErr } = await supabase
-          .from("employees")
-          .update({ avatar: base64 })
-          .eq("id", employee.id)
+        const res = await fetch("/api/employee/manage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "avatar", id: employee.id, avatar: base64 }),
+        })
+        const data = await res.json()
 
-        if (dbErr) {
-          setError("Fehler beim Speichern des Profilbilds: " + dbErr.message)
+        if (!res.ok || data.error) {
+          setError("Fehler beim Speichern des Profilbilds: " + (data.error || "Unbekannt"))
         } else {
           setAvatarUrl(base64)
           setNotice("Profilbild erfolgreich aktualisiert!")
@@ -85,14 +86,15 @@ export default function AvatarUpload({ employee, onAvatarChange, readOnly = fals
     setNotice(null)
 
     try {
-      const supabase = createClient()
-      const { error: dbErr } = await supabase
-        .from("employees")
-        .update({ avatar: null })
-        .eq("id", employee.id)
+      const res = await fetch("/api/employee/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "avatar", id: employee.id, avatar: null }),
+      })
+      const data = await res.json()
 
-      if (dbErr) {
-        setError("Fehler beim Löschen des Profilbilds: " + dbErr.message)
+      if (!res.ok || data.error) {
+        setError("Fehler beim Löschen des Profilbilds: " + (data.error || "Unbekannt"))
       } else {
         setAvatarUrl(null)
         setNotice("Profilbild wurde entfernt.")
