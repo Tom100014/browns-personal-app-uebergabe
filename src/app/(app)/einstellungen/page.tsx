@@ -11,6 +11,7 @@ import MinStaffingEditor from "@/components/einstellungen/MinStaffingEditor"
 import EmailStatus from "@/components/einstellungen/EmailStatus"
 import WhatsAppSettings from "@/components/einstellungen/WhatsAppSettings"
 import PrivacyControls from "@/components/einstellungen/PrivacyControls"
+import SystemCheck from "@/components/einstellungen/SystemCheck"
 import { APP_VERSION, DEVELOPER } from "@/lib/app-info"
 import type { OpeningHours, DayHours } from "@/types"
 
@@ -158,6 +159,10 @@ export default function EinstellungenPage() {
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Einstellungen</h1>
         <p className="text-gray-500 text-sm mt-0.5">Browns Café Konfiguration</p>
+      </div>
+
+      <div className="mb-6">
+        <SystemCheck />
       </div>
 
       {/* Umsatz-Pflichtschalter beim Ausstempeln */}

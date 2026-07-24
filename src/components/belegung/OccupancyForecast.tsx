@@ -22,6 +22,17 @@ function wxIcon(code: number) {
   if (code >= 95) return { Icon: CloudLightning, color: "text-violet-500" }
   return { Icon: Cloud, color: "text-gray-400" }
 }
+
+function wxBgImage(code: number): string {
+  if (code === 0) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80"
+  if (code <= 3) return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80"
+  if (code === 45 || code === 48) return "https://images.unsplash.com/photo-1487621167305-5d248087c724?auto=format&fit=crop&w=600&q=80"
+  if (code >= 51 && code <= 67) return "https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=600&q=80"
+  if (code >= 71 && code <= 77) return "https://images.unsplash.com/photo-1517299321529-639f8c26d4a1?auto=format&fit=crop&w=600&q=80"
+  if (code >= 80 && code <= 82) return "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=600&q=80"
+  if (code >= 95) return "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&w=600&q=80"
+  return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80"
+}
 const dayName = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { weekday: "short" })
 const dayShort = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })
 const dayLong = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long" })
@@ -175,26 +186,35 @@ export default function OccupancyForecast({ compact = false }: { compact?: boole
           <div className={cn("grid gap-3", compact ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-7")}>
             {days.map(d => {
               const { Icon, color } = d.w ? wxIcon(d.w.code) : { Icon: Cloud, color: "text-slate-300" }
+              const bgImg = d.w ? wxBgImage(d.w.code) : "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80"
               const relevant = d.evs.filter(e => Number(e.impact) !== 0)
               return (
-                <div key={d.date} className={cn("min-h-[150px] rounded-3xl border p-4", d.level.classes)}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold capitalize">{dayName(d.date)}</span>
-                    <span className="text-xs opacity-70">{dayShort(d.date)}</span>
+                <div key={d.date} className={cn("relative min-h-[170px] rounded-3xl border p-4 overflow-hidden group shadow-md transition-all hover:scale-[1.02]", d.level.classes)}>
+                  {/* Photorealistic weather background image with gradient overlay */}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center opacity-25 mix-blend-overlay transition group-hover:scale-105 duration-500 pointer-events-none"
+                    style={{ backgroundImage: `url('${bgImg}')` }}
+                  />
+
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold capitalize">{dayName(d.date)}</span>
+                      <span className="text-xs opacity-80 font-medium">{dayShort(d.date)}</span>
+                    </div>
+                    <div className="my-2.5 flex items-center gap-2">
+                      <Icon className={cn("h-6 w-6 drop-shadow-xs", color)} />
+                      {d.w && <span className="stat-number text-2xl font-black">{d.w.tmax}°</span>}
+                    </div>
+                    <p className="text-xs font-extrabold uppercase tracking-wide">{d.level.label}</p>
+                    <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-900/20 backdrop-blur-xs">
+                      <div className="h-full rounded-full bg-current opacity-90 shadow-xs" style={{ width: `${d.score}%` }} />
+                    </div>
+                    {d.evs.length > 0 && (
+                      <p className="mt-2.5 line-clamp-2 text-[11px] font-medium leading-tight" title={d.evs.map(e => e.title).join(", ")}>
+                        {relevant.length > 0 ? relevant.map(e => e.title).join(", ") : "Events vorhanden, noch nicht bewertet"}
+                      </p>
+                    )}
                   </div>
-                  <div className="my-3 flex items-center gap-2">
-                    <Icon className={cn("h-6 w-6", color)} />
-                    {d.w && <span className="stat-number text-2xl">{d.w.tmax}°</span>}
-                  </div>
-                  <p className="text-xs font-bold uppercase">{d.level.label}</p>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/55">
-                    <div className="h-full rounded-full bg-current opacity-70" style={{ width: `${d.score}%` }} />
-                  </div>
-                  {d.evs.length > 0 && (
-                    <p className="mt-3 line-clamp-2 text-[11px]" title={d.evs.map(e => e.title).join(", ")}>
-                      {relevant.length > 0 ? relevant.map(e => e.title).join(", ") : "Events vorhanden, noch nicht bewertet"}
-                    </p>
-                  )}
                 </div>
               )
             })}

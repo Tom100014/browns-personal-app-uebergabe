@@ -12,9 +12,10 @@ self.addEventListener("push", function (event) {
     badge: "/icons/icon-192.png",
     data: { url: data.url || "/" },
     tag: data.tag || undefined,
-    renotify: !!data.tag,
-    vibrate: [200, 100, 200, 100, 200],
-    silent: data.silent === true,
+    renotify: true,
+    requireInteraction: data.important === true,
+    vibrate: [300, 100, 300, 100, 300, 100, 600],
+    silent: false,
     actions: [
       { action: "open", title: "Öffnen" }
     ]
