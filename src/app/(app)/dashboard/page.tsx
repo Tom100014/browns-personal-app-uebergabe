@@ -32,12 +32,8 @@ type DashboardShift = { id: string; date: string; position: string; start_time: 
 type DashboardAbsence = { id: string; type: string; start_date: string; end_date: string; employee?: { name?: string } }
 type DashboardProfile = { id: string; name: string; email: string }
 type DashboardKnowledgeDoc = { id: string; title: string; file_path: string; kind: string; created_at?: string | null }
-type CompletedEntry = {
-  employee_id: string
-  clock_out: string
-  employee?: { name?: string; color?: string } | { name?: string; color?: string }[]
-  shift?: { position: string; end_time: string } | { position: string; end_time: string }[]
-}
+type CompletedEntry = { employee_id: string; clock_out: string }
+type TodayShiftRow = { id: string; employee_id: string | null; status: string; start_time: string; end_time: string; position: string; employee?: { name?: string; color?: string } }
 
 const initials = (name?: string) => (name ?? "—").split(" ").map(n => n[0]).join("").slice(0, 2)
 
@@ -110,7 +106,7 @@ export default async function DashboardPage() {
       .limit(100),
     supabase.from("shifts").select("date,start_time,end_time").not("employee_id", "is", null).gte("date", weekStart).lte("date", weekEnd),
     supabase.from("time_entries").select("employee_id").eq("date", today),
-    supabase.from("time_entries").select("employee_id,clock_out,employee:employees(name,color),shift:shifts(position,end_time)").eq("date", today).not("clock_out", "is", null),
+    supabase.from("time_entries").select("employee_id,clock_out").eq("date", today).not("clock_out", "is", null),
   ])
 
   const coverage = (openCoverage ?? []) as DashboardCoverage[]
@@ -128,39 +124,43 @@ export default async function DashboardPage() {
   const knowledgeDocCount = knowledgeDocList.length
 
   // Wer fehlt: Schicht hat begonnen, aber noch nicht eingestempelt
+  const todayShiftRows = (todayShifts ?? []) as TodayShiftRow[]
   const clockedIn = new Set((todayEntries ?? []).map((e: { employee_id: string }) => e.employee_id))
-  const noShows = ((todayShifts ?? []) as { id: string; employee_id: string | null; status: string; start_time: string; end_time: string; position: string; employee?: { name?: string; color?: string } }[])
+  const noShows = todayShiftRows
     .filter(s => s.employee_id && s.status !== "absent" && s.start_time.slice(0, 5) <= nowHHMM && !clockedIn.has(s.employee_id))
 
-  // Calculate overtime: employees who worked beyond scheduled shift end time
+  // Überstunden: wer über die geplante Schichtzeit hinaus ausgestempelt hat.
+  // time_entries hat keine direkte Schicht-Verknüpfung, daher Abgleich über
+  // employee_id + heutiges Datum (bei mehreren Schichten zählt das späteste Ende).
   const timeToMinutes = (time: string) => {
     const [h, m] = time.slice(0, 5).split(":").map(Number)
     return h * 60 + m
   }
+  const shiftByEmployee = new Map<string, TodayShiftRow>()
+  for (const s of todayShiftRows) {
+    if (!s.employee_id || s.status === "absent") continue
+    const existing = shiftByEmployee.get(s.employee_id)
+    if (!existing || timeToMinutes(s.end_time) > timeToMinutes(existing.end_time)) {
+      shiftByEmployee.set(s.employee_id, s)
+    }
+  }
   const overtimeEntries = ((completedEntries ?? []) as CompletedEntry[])
-    .filter(e => {
-      const shift = Array.isArray(e.shift) ? e.shift[0] : e.shift
-      return shift?.end_time
-    })
     .map(e => {
-      const shift = Array.isArray(e.shift) ? e.shift[0] : e.shift
-      const employee = Array.isArray(e.employee) ? e.employee[0] : e.employee
-      const scheduled = timeToMinutes(shift!.end_time)
-      const actual = timeToMinutes(e.clock_out)
-      const overtimeMin = Math.max(0, actual - scheduled)
-      const overtimeHours = overtimeMin / 60
+      const shift = shiftByEmployee.get(e.employee_id)
+      if (!shift?.end_time) return null
+      const overtimeHours = Math.max(0, timeToMinutes(e.clock_out) - timeToMinutes(shift.end_time)) / 60
       return {
         employeeId: e.employee_id,
-        name: employee?.name,
-        color: employee?.color,
-        position: shift?.position ?? "Unbekannt",
-        scheduledEnd: shift!.end_time,
+        name: shift.employee?.name,
+        color: shift.employee?.color,
+        position: shift.position ?? "Unbekannt",
+        scheduledEnd: shift.end_time,
         actualEnd: e.clock_out,
         overtimeHours,
         date: today,
       }
     })
-    .filter(e => e.overtimeHours > 0)
+    .filter((e): e is NonNullable<typeof e> => e !== null && e.overtimeHours > 0)
     .sort((a, b) => b.overtimeHours - a.overtimeHours)
 
   // Geplante Team-Stunden pro Wochentag (Mo–So)
