@@ -11,8 +11,8 @@ export default async function NachrichtenPage() {
     supabase.from("coverage_requests").select("*, offers:coverage_offers(*, employee:employees(id,name,color,position))").neq("status", "cancelled").order("created_at", { ascending: false }).limit(40),
   ])
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden p-4 sm:p-6">
-      <PageHeader title={"Nachrichten"} subtitle={"Team-Kommunikation & Ersatzsuche"} />
+    <div className="flex min-h-0 flex-col overflow-hidden p-2 sm:p-4 max-w-7xl mx-auto w-full">
+      <PageHeader title={"WhatsApp Team-Chat"} subtitle={"Team-Kommunikation, 1:1 Nachrichten & Datei-Uploads"} />
       <TeamChat
         messages={((messages ?? []) as Message[]).reverse()}
         employees={(employees ?? []) as Employee[]}

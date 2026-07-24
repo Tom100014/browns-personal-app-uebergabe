@@ -14,10 +14,10 @@ export default async function PortalChat() {
   ])
 
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden p-4 sm:p-6">
-      <div className="mb-4 shrink-0">
-        <h1 className="text-xl font-bold text-gray-900">Team-Chat</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Schreib mit deinen Kollegen</p>
+    <div className="flex min-h-0 flex-col overflow-hidden p-2 sm:p-4 max-w-7xl mx-auto w-full">
+      <div className="mb-3 shrink-0 text-center sm:text-left">
+        <h1 className="text-xl font-bold text-gray-900">WhatsApp Team-Chat</h1>
+        <p className="text-gray-500 text-sm mt-0.5">Schreib mit deinen Kollegen & erstelle 1:1 Nachrichten</p>
       </div>
       <TeamChat
         messages={((messages ?? []) as Message[]).reverse()}
