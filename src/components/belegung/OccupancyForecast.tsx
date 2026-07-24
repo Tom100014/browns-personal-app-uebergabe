@@ -33,6 +33,16 @@ function wxBgImage(code: number): string {
   if (code >= 95) return "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&w=600&q=80"
   return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80"
 }
+
+function eventPhoto(type: string): string {
+  const t = (type || "").toLowerCase()
+  if (t.includes("messe")) return "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=400&q=80"
+  if (t.includes("konzert") || t.includes("musik")) return "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80"
+  if (t.includes("fest") || t.includes("volksfest") || t.includes("markt")) return "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80"
+  if (t.includes("sport") || t.includes("fussball") || t.includes("spiel")) return "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=400&q=80"
+  if (t.includes("feiertag") || t.includes("ferien")) return "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=400&q=80"
+  return "https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=400&q=80"
+}
 const dayName = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { weekday: "short" })
 const dayShort = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })
 const dayLong = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long" })
@@ -303,16 +313,30 @@ export default function OccupancyForecast({ compact = false }: { compact?: boole
                         {visibleEvents.map(e => {
                           const t = EVENT_TYPES.find(x => x.value === e.type)
                           const learning = eventLearningLabel(e)
+                          const photo = eventPhoto(e.type)
                           return (
-                            <div key={e.id} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-                              <div className="mb-3 flex min-w-0 items-start gap-3">
-                                <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
-                                  <span className="text-[10px] font-bold uppercase">{dayName(e.date)}</span>
-                                  <span className="stat-number text-lg leading-none">{dayShort(e.date).slice(0, 2)}</span>
+                            <div key={e.id} className="group/card relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md hover:border-brand-300">
+                              <div className="relative mb-3 h-28 w-full overflow-hidden rounded-xl bg-slate-100">
+                                <img
+                                  src={photo}
+                                  alt={e.title}
+                                  className="h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+                                <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between">
+                                  <span className="inline-flex items-center gap-1 rounded-lg bg-white/90 px-2 py-0.5 text-[11px] font-bold text-slate-900 shadow-sm backdrop-blur-xs">
+                                    {t?.label ?? e.type}
+                                  </span>
+                                  <div className="flex h-10 w-10 flex-col items-center justify-center rounded-xl bg-white/95 text-brand-700 shadow-md backdrop-blur-xs">
+                                    <span className="text-[9px] font-bold uppercase">{dayName(e.date)}</span>
+                                    <span className="stat-number text-sm leading-none">{dayShort(e.date).slice(0, 2)}</span>
+                                  </div>
                                 </div>
+                              </div>
+                              <div className="mb-3 flex min-w-0 items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
-                                  <p className="break-words text-sm font-bold text-slate-950">{e.title}</p>
-                                  <p className="mt-1 text-xs text-slate-400">{t?.label ?? e.type}{e.end_date && e.end_date !== e.date ? ` · bis ${dayShort(e.end_date)}` : ""}</p>
+                                  <p className="break-words text-sm font-bold text-slate-950 leading-snug">{e.title}</p>
+                                  <p className="mt-0.5 text-xs text-slate-500">{dayLong(e.date)}{e.end_date && e.end_date !== e.date ? ` · bis ${dayShort(e.end_date)}` : ""}</p>
                                 </div>
                                 <button onClick={() => delEvent(e.id)} className="shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500" aria-label="Event löschen">
                                   <Trash2 className="h-3.5 w-3.5" />

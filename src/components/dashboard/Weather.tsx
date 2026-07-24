@@ -18,6 +18,17 @@ function iconFor(code: number) {
   return { Icon: Cloud, color: "text-gray-400" }
 }
 
+function wxBgImage(code: number): string {
+  if (code === 0) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80"
+  if (code <= 3) return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=400&q=80"
+  if (code === 45 || code === 48) return "https://images.unsplash.com/photo-1487621167305-5d248087c724?auto=format&fit=crop&w=400&q=80"
+  if (code >= 51 && code <= 67) return "https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=400&q=80"
+  if (code >= 71 && code <= 77) return "https://images.unsplash.com/photo-1517299321529-639f8c26d4a1?auto=format&fit=crop&w=400&q=80"
+  if (code >= 80 && code <= 82) return "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=400&q=80"
+  if (code >= 95) return "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&w=400&q=80"
+  return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=400&q=80"
+}
+
 /** Outdoor-area staffing hint based on weather (warm + dry = more Service outside). */
 function staffHint(d: Day): { level: "hoch" | "mittel" | "ruhig"; text: string } {
   const dry = d.rain < 40
@@ -80,17 +91,17 @@ export default function Weather() {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4 shadow-xs">
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-          <Sun className="w-4 h-4 text-amber-500" /> Wetter &amp; Außenbereich-Planung
+          <Sun className="w-4 h-4 text-amber-500 animate-pulse" /> Wetter &amp; Außenbereich-Planung
           {place && <span className="text-gray-400 font-normal inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{place}</span>}
         </h2>
         <div className="flex items-center gap-2">
           <input value={cityInput} onChange={e => setCityInput(e.target.value)} placeholder="Stadt (z.B. Wien)"
-            className="w-36 px-2.5 py-1.5 rounded-lg border border-gray-300 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
+            className="w-36 px-2.5 py-1.5 rounded-xl border border-gray-300 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/30" />
           <button onClick={saveCity} disabled={saving}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium transition disabled:opacity-50">
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium transition disabled:opacity-50">
             <Save className="w-3.5 h-3.5" /> Setzen
           </button>
         </div>
@@ -104,19 +115,23 @@ export default function Weather() {
         <p className="text-sm text-gray-400">Keine Wetterdaten für &quot;{city}&quot;. Stadt prüfen.</p>
       ) : (
         <>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 mb-3">
             {days.map(d => {
               const { Icon, color } = iconFor(d.code)
               const h = staffHint(d)
+              const bg = wxBgImage(d.code)
               return (
-                <div key={d.date} className="rounded-lg border border-gray-100 p-2.5 text-center">
-                  <p className="text-xs text-gray-500 capitalize">{dayName(d.date)}</p>
-                  <Icon className={cn("w-6 h-6 mx-auto my-1", color)} />
-                  <p className="text-sm font-semibold text-gray-900">{d.tmax}°</p>
-                  <p className="text-[10px] text-gray-400">{d.tmin}° · <Umbrella className="w-2.5 h-2.5 inline" />{d.rain}%</p>
-                  <span className={cn("mt-1.5 inline-block w-full text-[10px] px-1 py-0.5 rounded border font-medium", LEVEL[h.level])}>
-                    {h.level === "hoch" ? "viel los" : h.level === "ruhig" ? "ruhig" : "normal"}
-                  </span>
+                <div key={d.date} className="relative overflow-hidden rounded-2xl border border-gray-200 p-3 text-center group transition hover:scale-105 shadow-xs">
+                  <div className="absolute inset-0 bg-cover bg-center opacity-20 mix-blend-overlay transition group-hover:scale-110 duration-500 pointer-events-none" style={{ backgroundImage: `url('${bg}')` }} />
+                  <div className="relative z-10">
+                    <p className="text-xs text-gray-700 font-bold capitalize">{dayName(d.date)}</p>
+                    <Icon className={cn("w-6 h-6 mx-auto my-1.5 drop-shadow-xs", color)} />
+                    <p className="text-base font-black text-gray-900">{d.tmax}°</p>
+                    <p className="text-[10px] text-gray-500 font-medium">{d.tmin}° · <Umbrella className="w-2.5 h-2.5 inline" />{d.rain}%</p>
+                    <span className={cn("mt-2 inline-block w-full text-[10px] px-1 py-0.5 rounded-lg border font-bold uppercase", LEVEL[h.level])}>
+                      {h.level === "hoch" ? "viel los" : h.level === "ruhig" ? "ruhig" : "normal"}
+                    </span>
+                  </div>
                 </div>
               )
             })}
