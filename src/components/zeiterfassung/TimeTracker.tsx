@@ -285,18 +285,21 @@ export default function TimeTracker({
             </>
           ) : (
             <>
-              <div className="relative my-3">
-                <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-xl animate-pulse pointer-events-none" />
+              <div className="relative my-4 group">
+                <div className="absolute inset-0 rounded-full bg-emerald-500/30 blur-2xl animate-pulse pointer-events-none group-hover:bg-emerald-500/50 transition" />
                 <button onClick={clockIn} disabled={loading || !selectedEmployee}
                   aria-label="Einstempeln"
-                  className="spring-press relative w-40 h-40 rounded-full bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white shadow-2xl
-                    flex flex-col items-center justify-center gap-2 border-4 border-white/40
-                    hover:shadow-emerald-500/30 disabled:opacity-50">
-                  <Play className="w-10 h-10 ml-1" fill="currentColor" />
-                  <span className="text-sm font-bold tracking-wide uppercase">Einstempeln</span>
+                  className="relative w-44 h-44 rounded-full bg-gradient-to-b from-emerald-400 via-emerald-600 to-teal-800 text-white
+                    shadow-[0_20px_40px_rgba(16,185,129,0.4),inset_0_4px_8px_rgba(255,255,255,0.4)]
+                    flex flex-col items-center justify-center gap-2 border-4 border-white/80
+                    transition-all duration-200 hover:scale-105 active:scale-95 active:shadow-inner disabled:opacity-50 cursor-pointer">
+                  <div className="p-3 rounded-full bg-white/20 backdrop-blur-md shadow-inner">
+                    <Play className="w-9 h-9 ml-1 text-white drop-shadow-md" fill="currentColor" />
+                  </div>
+                  <span className="text-sm font-black tracking-wider uppercase text-white drop-shadow-sm">Einstempeln</span>
                 </button>
               </div>
-              <p className="text-xs font-medium text-gray-500 mt-4">
+              <p className="text-xs font-bold text-gray-500 mt-2">
                 {totalToday > 0 ? `Heute bereits ${totalToday.toLocaleString("de-DE")} h erfasst` : "Tippe zum Schichtbeginn im Café"}
               </p>
             </>
@@ -605,7 +608,7 @@ export default function TimeTracker({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="font-bold text-gray-900 text-xs flex items-center gap-1">
-                    💶 Erbrachter Schichtumsatz in € <span className="text-red-500">* (Pflichtfeld)</span>
+                    💶 Erbrachter Schichtumsatz in € <span className="text-gray-400 font-normal">(Optional — sonst leer lassen)</span>
                   </label>
                 </div>
                 <div className="relative">
@@ -613,7 +616,7 @@ export default function TimeTracker({
                     type="number"
                     step="0.01"
                     min="0"
-                    placeholder="z. B. 450.00"
+                    placeholder="z. B. 450.00 (oder leer lassen für 0 €)"
                     value={shiftRevenueInput}
                     onChange={e => { setShiftRevenueInput(e.target.value); setRevenueValidationError("") }}
                     className="w-full pl-8 pr-4 py-3 rounded-xl border border-brand-200 text-base font-bold text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 shadow-sm"
@@ -621,7 +624,7 @@ export default function TimeTracker({
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">€</span>
                 </div>
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Bitte trage deinen mit der Kasse in dieser Schicht erzielten Umsatz ein.
+                  Falls du an der Kasse gearbeitet hast, gib deinen Schichtumsatz ein. Sonst klicke direkt auf Ausstempeln.
                 </p>
               </div>
 
@@ -644,7 +647,7 @@ export default function TimeTracker({
               <button
                 type="button"
                 onClick={executeClockOut}
-                disabled={loading || !shiftRevenueInput.trim()}
+                disabled={loading}
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-md transition disabled:opacity-40"
               >
                 {loading ? "Wird gespeichert…" : "✅ Schicht beenden & Ausstempeln"}
