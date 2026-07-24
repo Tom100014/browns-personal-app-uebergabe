@@ -23,6 +23,7 @@ import OccupancyForecast from "@/components/belegung/OccupancyForecast"
 import LiveRefresh from "@/components/realtime/LiveRefresh"
 import WeekHoursChart from "@/components/charts/WeekHoursChart"
 import ActionCenter, { type DashboardActionItem } from "@/components/dashboard/ActionCenter"
+import DailyMorningBriefing from "@/components/dashboard/DailyMorningBriefing"
 import type { CoverageRequest } from "@/types"
 
 type DashboardCoverage = Pick<CoverageRequest, "id" | "date" | "position"> & { offers?: { id: string }[] }
@@ -226,6 +227,14 @@ export default async function DashboardPage() {
   return (
     <div className="max-w-7xl space-y-6 px-4 py-5 sm:px-6 lg:px-8">
       <LiveRefresh tables={["shifts", "time_entries", "absences", "coverage_requests", "coverage_offers", "employees", "knowledge_docs"]} />
+
+      <DailyMorningBriefing
+        userName={firstName}
+        openShiftsCount={unfilledShiftCount}
+        unbookedCount={noShows.length}
+        pendingAbsencesCount={absenceCount}
+        pendingCoverageCount={coverageCount}
+      />
 
       <div className="soft-panel overflow-hidden p-6 sm:p-8 bg-gradient-to-r from-amber-500/10 via-white to-amber-500/5 border border-amber-200/60 shadow-sm rounded-3xl">
         <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
