@@ -130,7 +130,7 @@ export default async function PortalHome() {
   ]
 
   return (
-    <div className="min-h-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+    <div className="min-h-full">
       <LiveRefresh tables={["messages", "shifts", "coverage_requests", "absences", "time_entries"]} />
       <header className="mb-6 flex items-center justify-between gap-4 lg:hidden">
         <Link href="/portal/stempeln" className="text-charcoal-light">

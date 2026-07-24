@@ -3,8 +3,8 @@ import { Brain, CalendarDays, Sparkles } from "lucide-react"
 
 export default function BelegungPage() {
   return (
-    <div className="max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-      <div className="soft-panel mb-6 overflow-hidden p-6 sm:p-8">
+    <div className="space-y-6">
+      <div className="soft-panel overflow-hidden p-6 sm:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-brand-700 shadow-card">

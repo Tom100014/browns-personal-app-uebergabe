@@ -18,7 +18,7 @@ export default async function PortalVertretung() {
   ])
 
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-900">Vertretung</h1>
         <p className="text-gray-500 text-sm mt-0.5">Hier kannst du für Kollegen einspringen — die Leitung bestätigt</p>
