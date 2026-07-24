@@ -65,13 +65,18 @@ export default function EinstellungenPage() {
   const [savingRevenue, setSavingRevenue] = useState(false)
   const [savedRevenue, setSavedRevenue] = useState(false)
 
+  const [autoClockout, setAutoClockout] = useState(false)
+  const [savingClockout, setSavingClockout] = useState(false)
+  const [savedClockout, setSavedClockout] = useState(false)
+
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const { data } = await supabase.from("settings").select("key,value").in("key", ["wifi_ip", "opening_hours", "cafe_info", "automation", "knowledge", "require_shift_revenue"])
+      const { data } = await supabase.from("settings").select("key,value").in("key", ["wifi_ip", "opening_hours", "cafe_info", "automation", "knowledge", "require_shift_revenue", "auto_clockout"])
       for (const row of data ?? []) {
         if (row.key === "wifi_ip") setWifiIp(row.value)
         if (row.key === "require_shift_revenue") setRequireRevenue(row.value !== "false")
+        if (row.key === "auto_clockout") setAutoClockout(row.value === "true")
         if (row.key === "opening_hours" && row.value) {
           try { setHours({ ...DEFAULT_HOURS, ...JSON.parse(row.value) }) } catch {}
         }
@@ -154,6 +159,14 @@ export default function EinstellungenPage() {
     setTimeout(() => setSavedRevenue(false), 2000)
   }
 
+  async function saveClockoutSetting() {
+    setSavingClockout(true)
+    const supabase = createClient()
+    await supabase.from("settings").upsert({ key: "auto_clockout", value: autoClockout ? "true" : "false" })
+    setSavingClockout(false); setSavedClockout(true)
+    setTimeout(() => setSavedClockout(false), 2000)
+  }
+
   return (
     <div className="w-full min-w-0 max-w-7xl p-4 sm:p-6 space-y-6">
       <div className="mb-6">
@@ -203,6 +216,47 @@ export default function EinstellungenPage() {
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition disabled:opacity-50"
         >
           {savedRevenue ? <><Check className="w-4 h-4" /> Gespeichert</> : <><Save className="w-4 h-4" /> Einstellung speichern</>}
+        </button>
+      </div>
+
+      {/* Automatisches Ausstempeln nach Schichtende */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-9 h-9 rounded-lg bg-sky-50 flex items-center justify-center flex-shrink-0">
+            <Clock className="w-4.5 h-4.5 text-sky-600" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-gray-900 text-sm">Automatisches Ausstempeln (System)</h2>
+            <p className="text-gray-500 text-xs mt-1 leading-relaxed">
+              Wenn aktiv, beendet das System vergessene, offene Stempelungen automatisch — auf das geplante Schichtende (sonst Stempelbeginn + 8&nbsp;Std.). So verfälschen vergessene Ausstempelungen die Stundenauswertung nicht.
+            </p>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-200/80 mb-4 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoClockout}
+            onChange={e => setAutoClockout(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30"
+          />
+          <div className="text-xs">
+            <span className="font-bold text-gray-900 block">Auto-Ausstempeln aktivieren</span>
+            <span className="text-gray-500">
+              {autoClockout
+                ? "Aktiv — offene Schichten vergangener Tage werden automatisch auf das Schichtende gebucht."
+                : "Inaktiv — vergessene Stempelungen bleiben offen und müssen manuell (Admin) korrigiert werden."}
+            </span>
+          </div>
+        </label>
+
+        <button
+          type="button"
+          onClick={saveClockoutSetting}
+          disabled={savingClockout}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition disabled:opacity-50"
+        >
+          {savedClockout ? <><Check className="w-4 h-4" /> Gespeichert</> : <><Save className="w-4 h-4" /> Einstellung speichern</>}
         </button>
       </div>
 

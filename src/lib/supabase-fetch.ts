@@ -1,25 +1,21 @@
-const REQUEST_TIMEOUT_MS = 10_000
+// Request timeout wrapper for Supabase clients to prevent indefinite hangs
+// on slow or unreachable databases. Uses AbortController for clean cancellation.
 
-/**
- * Supabase's client has no request timeout by default, so when the project is
- * unreachable (paused, wrong URL/key, network issue) a call can hang for a very
- * long time with nothing on screen. Every server/browser page depends on an
- * auth check before it can render, so one stalled request stalls the whole app.
- *
- * We abort via a real AbortController (not `AbortSignal.timeout`, which rejects
- * with a `TimeoutError`): postgrest-js only skips its automatic retry loop for
- * errors named `AbortError`, so using a genuine abort makes a stalled request
- * fail once and fast instead of being retried three times.
- */
-export function timeoutFetch(input: RequestInfo | URL, init?: RequestInit) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+interface AbortControllerWithTimeout extends AbortController {
+  __timeoutId?: NodeJS.Timeout
+}
 
-  const external = init?.signal
-  if (external) {
-    if (external.aborted) controller.abort()
-    else external.addEventListener("abort", () => controller.abort(), { once: true })
-  }
+export function createTimeoutAbortController(timeoutMs: number = 10000): AbortControllerWithTimeout {
+  const controller = new AbortController() as AbortControllerWithTimeout
+  const timeoutId = setTimeout(() => {
+    controller.abort()
+  }, timeoutMs)
 
-  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer))
+  controller.__timeoutId = timeoutId
+  return controller
+}
+
+export function clearTimeoutAbortController(controller: AbortControllerWithTimeout) {
+  const timeoutId = controller.__timeoutId
+  if (timeoutId) clearTimeout(timeoutId)
 }

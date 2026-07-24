@@ -2,29 +2,40 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
-import { AlertTriangle, RotateCcw } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 
-export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ErrorBoundary({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    console.error(error)
+    console.error("App error:", error)
   }, [error])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
-      <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-8 text-center shadow-sm">
-        <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center mx-auto mb-4">
-          <AlertTriangle className="w-6 h-6 text-red-600" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md w-full text-center space-y-6">
+        <div className="flex justify-center">
+          <div className="p-4 bg-red-100 rounded-full">
+            <AlertTriangle className="h-8 w-8 text-red-600" />
+          </div>
         </div>
-        <h1 className="text-lg font-semibold text-gray-900">Seite konnte nicht geladen werden</h1>
-        <p className="text-sm text-gray-500 mt-1.5">
-          Die Verbindung zum Server hat zu lange gedauert oder ist fehlgeschlagen. Bitte versuche es erneut.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-2 justify-center mt-6">
-          <button onClick={reset} className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
-            <RotateCcw className="w-4 h-4" /> Erneut versuchen
+
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Oops, etwas ist schiefgelaufen</h1>
+          <p className="mt-2 text-gray-600 text-sm">
+            Es gab einen unerwarteten Fehler beim Laden dieser Seite. Bitte versuche es erneut.
+          </p>
+          {error.message && (
+            <p className="mt-3 text-xs text-gray-500 font-mono bg-gray-100 rounded p-3 overflow-auto max-h-24">
+              {error.message}
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={reset} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition">
+            Erneut versuchen
           </button>
-          <Link href="/login" className="inline-flex items-center justify-center px-4 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium transition">
-            Zur Anmeldung
+          <Link href="/" className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-3 px-4 rounded-xl transition text-center inline-block">
+            Zur Startseite
           </Link>
         </div>
       </div>

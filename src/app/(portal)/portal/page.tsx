@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Clock, Calendar, LifeBuoy, ArrowRight, CalendarOff, MessageSquare, Grid3X3, ThumbsUp, Euro, Hand, BriefcaseBusiness, UserRoundCheck, Sun, CloudSun, Moon } from "lucide-react"
+import { Clock, Calendar, LifeBuoy, ArrowRight, CalendarOff, MessageSquare, Grid3X3, ThumbsUp, Euro, Hand, BriefcaseBusiness, UserRoundCheck, Sun, CloudSun, Moon, AlertTriangle } from "lucide-react"
 import { createClient } from "@/lib/supabase-server"
 import { getCurrentStaff } from "@/lib/staff"
 import { entryHours, shiftHours, formatHours, formatEuro } from "@/lib/hours"
@@ -36,7 +36,7 @@ export default async function PortalHome() {
   const greeting = hour < 11 ? "Guten Morgen" : hour < 17 ? "Guten Tag" : "Guten Abend"
   const GreetingIcon = hour < 11 ? Sun : hour < 17 ? CloudSun : Moon
 
-  const [{ data: nextShifts }, { data: weekEntries }, { data: weekShiftsOwn }, { count: openCoverageCount }, { data: chat }, { data: myAbs }, { data: monthEntries }, { data: pay }, { data: directory }, { data: myEntries }] = await Promise.all([
+  const [{ data: nextShifts }, { data: weekEntries }, { data: weekShiftsOwn }, { count: openCoverageCount }, { data: chat }, { data: myAbs }, { data: monthEntries }, { data: pay }, { data: directory }, { data: myEntries }, { data: todayTimeEntries }] = await Promise.all([
     supabase.from("shifts").select("*").eq("employee_id", me.id).neq("status", "absent").gte("date", today).order("date").order("start_time").limit(3),
     supabase.from("time_entries").select("clock_in,clock_out,break_minutes").eq("employee_id", me.id).gte("date", weekStart).lte("date", weekEnd),
     supabase.from("shifts").select("date,start_time,end_time,position,status").eq("employee_id", me.id).neq("status", "absent").gte("date", weekStart).lte("date", weekEnd).order("start_time"),
@@ -47,6 +47,7 @@ export default async function PortalHome() {
     supabase.from("employee_private").select("hourly_wage").eq("employee_id", me.id).maybeSingle(),
     supabase.from("employee_directory").select("id,name,color"),
     supabase.from("time_entries").select("*").eq("employee_id", me.id).order("created_at", { ascending: false }).limit(10),
+    supabase.from("time_entries").select("id,clock_in,clock_out").eq("employee_id", me.id).eq("date", today),
   ])
 
   const shifts = (nextShifts ?? []) as Shift[]
@@ -60,6 +61,13 @@ export default async function PortalHome() {
   const pendingAbs = absences.filter(a => a.status === "pending")
   const todaysShift = shifts.find(s => s.date === today)
   const needsConfirm = shifts.filter(s => s.status === "scheduled").length
+
+  // Detect missed punch: shift started but haven't clocked in
+  const nowBerlinForShift = new Date(new Date().toLocaleString("en-US", { timeZone: TZ }))
+  const nowHHMMForShift = format(nowBerlinForShift, "HH:mm")
+  const hasClockIn = (todayTimeEntries ?? []).length > 0
+  const shiftStarted = todaysShift && todaysShift.start_time.slice(0, 5) <= nowHHMMForShift && todaysShift.status !== "absent"
+  const missedPunch = shiftStarted && !hasClockIn
 
   // Wochenbilanz: gearbeitet vs. geplant
   const workedH = (weekEntries ?? []).reduce((acc, e) => acc + entryHours(e), 0)
@@ -123,7 +131,24 @@ export default async function PortalHome() {
   return (
     <div className="min-h-full max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 space-y-6">
       <LiveRefresh tables={["messages", "shifts", "coverage_requests", "absences", "time_entries"]} />
-      
+
+      {missedPunch && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 sm:p-5 shadow-card">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-red-950">Vergessen zu stempeln?</p>
+              <p className="mt-0.5 text-sm text-red-700">Deine Schicht hat bereits begonnen ({todaysShift?.start_time.slice(0, 5)} Uhr), aber du hast dich noch nicht eingestempelt.</p>
+            </div>
+            <Link href="/portal/stempeln" className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-red-600 px-3.5 py-2 text-sm font-bold text-white transition hover:bg-red-700">
+              <Clock className="h-4 w-4" /> Jetzt stempeln
+            </Link>
+          </div>
+        </div>
+      )}
+
       <header className="mb-4 flex items-center justify-between gap-4 lg:hidden">
         <Link href="/portal/stempeln" className="text-charcoal-light">
           <Clock className="h-5 w-5" />
@@ -182,6 +207,7 @@ export default async function PortalHome() {
           locationConfigured={false}
           lockedEmployeeId={me.id}
           hero={true}
+          showHistory={false}
         />
       </div>
 
