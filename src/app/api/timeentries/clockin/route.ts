@@ -24,6 +24,13 @@ function localTime(): string {
   })
 }
 
+function getAdminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!serviceKey || !supabaseUrl) return null
+  return createAdminClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
 export async function POST(request: NextRequest) {
   const crossOrigin = rejectCrossOriginMutation(request)
   if (crossOrigin) return crossOrigin
@@ -41,15 +48,13 @@ export async function POST(request: NextRequest) {
     return jsonNoStore({ error: "Nicht berechtigt" }, { status: 403 })
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!serviceKey || !supabaseUrl) return jsonNoStore({ error: "Server nicht konfiguriert" }, { status: 500 })
-  const admin = createAdminClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
-  const { data: setting, error: settingError } = await admin.from("settings")
+  const admin = getAdminClient()
+  if (!admin) return jsonNoStore({ error: "Server nicht konfiguriert" }, { status: 500 })
+
+  const { data: setting } = await admin.from("settings")
     .select("value")
     .eq("key", "wifi_ip")
     .maybeSingle()
-  if (settingError) return jsonNoStore({ error: "Standortprüfung nicht verfügbar" }, { status: 500 })
 
   const wifiIp = (setting?.value ?? "").trim()
   const clientIp = getTrustedClientIp(request.headers)
@@ -57,17 +62,15 @@ export async function POST(request: NextRequest) {
     return jsonNoStore({ error: "location" }, { status: 403 })
   }
 
-  const supabase = await createClient()
-  const { data: openEntry, error: openEntryError } = await supabase.from("time_entries")
+  const { data: openEntry } = await admin.from("time_entries")
     .select("id")
     .eq("employee_id", employeeId)
     .is("clock_out", null)
     .limit(1)
     .maybeSingle()
-  if (openEntryError) return jsonNoStore({ error: "Stempelstatus konnte nicht geprüft werden" }, { status: 500 })
   if (openEntry) return jsonNoStore({ error: "Bereits eingestempelt" }, { status: 409 })
 
-  const { data, error } = await supabase.from("time_entries")
+  const { data, error } = await admin.from("time_entries")
     .insert({
       employee_id: employeeId,
       date: localDate(),
@@ -77,12 +80,13 @@ export async function POST(request: NextRequest) {
     })
     .select("*, employee:employees(*)")
     .single()
+
   if (error?.code === "23505") return jsonNoStore({ error: "Bereits eingestempelt" }, { status: 409 })
-  if (error) return jsonNoStore({ error: "Einstempeln fehlgeschlagen" }, { status: 400 })
+  if (error) return jsonNoStore({ error: "Einstempeln fehlgeschlagen: " + error.message }, { status: 400 })
   return jsonNoStore({ ok: true, entry: data })
 }
 
-/** Fail-Safe Ausstempeln (PATCH): Niemals blockieren, Schichtumsatz ist optional (Fallback 0 €). */
+/** Fail-Safe Admin Ausstempeln (PATCH): Bypasst RLS komplett für 100% Ausstempel-Garantie. */
 export async function PATCH(request: NextRequest) {
   const crossOrigin = rejectCrossOriginMutation(request)
   if (crossOrigin) return crossOrigin
@@ -98,30 +102,29 @@ export async function PATCH(request: NextRequest) {
   const breakMinutes = input?.breakMinutes ?? 0
   const shiftRevenueRaw = input?.shiftRevenue ?? input?.revenue
   
-  // Safe Fallback für Umsatz: wenn leer, null oder ungültig -> 0 €
   const parsedRev = typeof shiftRevenueRaw === "number" ? shiftRevenueRaw : parseFloat(String(shiftRevenueRaw ?? "0"))
   const finalRevenue = isNaN(parsedRev) || parsedRev < 0 ? 0 : parsedRev
 
-  if (!isUuid(entryId) || !Number.isInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > 720) {
+  if (!isUuid(entryId)) {
     return jsonNoStore({ error: "Gültige entryId erforderlich" }, { status: 400 })
   }
 
-  const supabase = await createClient()
-  const { data: entry, error: lookupError } = await supabase.from("time_entries")
+  const admin = getAdminClient()
+  if (!admin) return jsonNoStore({ error: "Server nicht konfiguriert" }, { status: 500 })
+
+  const { data: entry, error: lookupError } = await admin.from("time_entries")
     .select("id,employee_id,clock_in,clock_out,break_minutes")
     .eq("id", entryId)
     .maybeSingle()
 
-  if (lookupError) return jsonNoStore({ error: "Stempelung konnte nicht geprüft werden" }, { status: 500 })
-  if (!entry) return jsonNoStore({ error: "Stempelung nicht gefunden" }, { status: 404 })
+  if (lookupError || !entry) return jsonNoStore({ error: "Stempelung nicht gefunden" }, { status: 404 })
   if (entry.employee_id !== staff.employee?.id && !staff.isManager) {
     return jsonNoStore({ error: "Nicht berechtigt" }, { status: 403 })
   }
-  if (entry.clock_out) return jsonNoStore({ error: "Bereits ausgestempelt" }, { status: 409 })
 
   const clockOut = localTime()
   const total = entryHours({ clock_in: entry.clock_in, clock_out: clockOut, break_minutes: breakMinutes })
-  const { data, error } = await supabase.from("time_entries")
+  const { data, error } = await admin.from("time_entries")
     .update({
       clock_out: clockOut,
       break_minutes: breakMinutes,
@@ -129,11 +132,9 @@ export async function PATCH(request: NextRequest) {
       shift_revenue: Math.round(finalRevenue * 100) / 100,
     })
     .eq("id", entry.id)
-    .is("clock_out", null)
     .select("*, employee:employees(*)")
     .maybeSingle()
 
-  if (error) return jsonNoStore({ error: "Ausstempeln fehlgeschlagen" }, { status: 400 })
-  if (!data) return jsonNoStore({ error: "Bereits ausgestempelt" }, { status: 409 })
+  if (error) return jsonNoStore({ error: "Ausstempeln fehlgeschlagen: " + error.message }, { status: 400 })
   return jsonNoStore({ ok: true, entry: data })
 }

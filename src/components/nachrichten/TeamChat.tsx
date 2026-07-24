@@ -5,7 +5,7 @@ import Link from "next/link"
 import {
   Send, Trash2, Eraser, MessageSquare, Users, Wifi,
   Paperclip, FileText, Image as ImageIcon, X, Lock, Download,
-  CheckCheck, Maximize2, ArrowLeft
+  CheckCheck, Maximize2, ArrowLeft, Volume2
 } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import type { Employee, Message, CoverageRequest } from "@/types"
@@ -70,6 +70,34 @@ function getMsgRecipient(msg?: Message | null): string | null {
   return ((msg.recipient_id || meta.recipient_id) as string) || null
 }
 
+function playNotificationChime() {
+  try {
+    const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext
+    if (!AudioContext) return
+    const ctx = new AudioContext()
+    const osc1 = ctx.createOscillator()
+    const osc2 = ctx.createOscillator()
+    const gain = ctx.createGain()
+
+    osc1.type = "sine"
+    osc2.type = "sine"
+    osc1.frequency.setValueAtTime(880, ctx.currentTime) // A5
+    osc2.frequency.setValueAtTime(1760, ctx.currentTime + 0.12) // A6
+
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+
+    osc1.connect(gain)
+    osc2.connect(gain)
+    gain.connect(ctx.destination)
+
+    osc1.start(ctx.currentTime)
+    osc1.stop(ctx.currentTime + 0.12)
+    osc2.start(ctx.currentTime + 0.12)
+    osc2.stop(ctx.currentTime + 0.45)
+  } catch { /* ignore */ }
+}
+
 export default function TeamChat({
   messages: initial,
   employees = [],
@@ -132,6 +160,7 @@ export default function TeamChat({
         { event: "INSERT", schema: "public", table: "messages" },
         payload => {
           const newMsg = payload.new as Message
+          playNotificationChime()
           setMessages(prev => {
             const next = mergeMessage(prev, withEmployee(newMsg))
             if (isNearBottomRef.current) {
@@ -169,7 +198,6 @@ export default function TeamChat({
     try { localStorage.setItem(SENDER_KEY, id) } catch { /* ignore */ }
   }
 
-  // Datei-Upload Handler
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -200,7 +228,6 @@ export default function TeamChat({
     }
   }
 
-  // Server Route Message Sending
   async function sendMessage() {
     if ((!content.trim() && !attachment) || !selectedEmp) return
     setSending(true)
@@ -225,6 +252,7 @@ export default function TeamChat({
         throw new Error(data.error || "Fehler beim Senden")
       }
 
+      playNotificationChime()
       setMessages(prev => mergeMessage(prev, withEmployee(data.message as Message)))
       setContent("")
       setAttachment(null)
@@ -234,7 +262,7 @@ export default function TeamChat({
       if (recipientId) {
         notifyPush({
           employeeIds: [recipientId],
-          title: `🔒 Direktnachricht von ${senderName}`,
+          title: `💬 Direktnachricht von ${senderName}`,
           body: text || `[Datei empfangen: ${currentAttachment?.name}]`,
           url: "/portal/chat",
           tag: "chat-private",
@@ -279,7 +307,6 @@ export default function TeamChat({
     await createClient().from("messages").delete().in("id", chatIds)
   }
 
-  // Gefilterte Nachrichten
   const filteredMessages = useMemo(() => {
     return messages.filter(msg => {
       if (!msg) return false
@@ -334,7 +361,7 @@ export default function TeamChat({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="font-extrabold text-sm sm:text-base text-gray-900 truncate">
-                  {recipientId ? `🔒 Privat mit ${targetRecipientEmp?.name || "Mitarbeiter"}` : "👥 Team-Chat (Öffentlich)"}
+                  {recipientId ? `💬 Privat mit ${targetRecipientEmp?.name || "Mitarbeiter"}` : "👥 Team-Chat (Öffentlich)"}
                 </h2>
               </div>
               <p className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
@@ -349,13 +376,16 @@ export default function TeamChat({
                   <Wifi className="h-3 w-3" />
                   {liveState === "connected" ? "Live" : "Verbinden..."}
                 </span>
+                <button type="button" onClick={playNotificationChime} title="Signalton testen" className="text-amber-600 hover:text-amber-700">
+                  <Volume2 className="h-3.5 w-3.5" />
+                </button>
               </p>
             </div>
           </div>
 
           {/* Steuerung & Empfänger Auswahl */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Empfänger Auswahl */}
+            {/* Empfänger Auswahl (Clean ohne verwirrendes Schloss Icon) */}
             <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs shadow-xs max-w-full">
               <select
                 value={recipientId}
@@ -363,11 +393,11 @@ export default function TeamChat({
                 className="bg-transparent font-bold text-gray-800 focus:outline-none cursor-pointer truncate"
               >
                 <option value="">👥 Team (Öffentlich)</option>
-                <optgroup label="🔒 Private 1:1 Nachricht:">
+                <optgroup label="💬 1:1 Direktnachricht senden an:">
                   {employees
                     .filter(e => e.id !== selectedEmp)
                     .map(e => (
-                      <option key={e.id} value={e.id}>🔒 {e.name} ({e.position || "Team"})</option>
+                      <option key={e.id} value={e.id}>💬 {e.name} ({e.position || "Team"})</option>
                     ))}
                 </optgroup>
               </select>
@@ -398,7 +428,7 @@ export default function TeamChat({
         {filteredMessages.length === 0 && (
           <div className="mx-auto mt-12 max-w-sm rounded-2xl bg-white p-6 text-center shadow-card border border-dashed border-gray-200">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-              {recipientId ? <Lock className="h-6 w-6" /> : <MessageSquare className="h-6 w-6" />}
+              <MessageSquare className="h-6 w-6" />
             </div>
             <p className="text-sm font-bold text-gray-900">
               {recipientId ? `Keine privaten Nachrichten mit ${targetRecipientEmp?.name}` : "Noch keine Team-Nachrichten"}
@@ -436,7 +466,7 @@ export default function TeamChat({
                 {showName && !isMe && (
                   <p className="text-xs font-bold text-gray-600 px-1 flex items-center gap-1">
                     {emp?.name || "Kollege"}
-                    {isPrivate && <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded">🔒 Privat</span>}
+                    {isPrivate && <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded">💬 Privat</span>}
                   </p>
                 )}
 
@@ -535,7 +565,7 @@ export default function TeamChat({
             type="text"
             value={content}
             onChange={e => setContent(e.target.value)}
-            placeholder={recipientId ? `🔒 Private Nachricht an ${targetRecipientEmp?.name}...` : "Nachricht an das Team schreiben..."}
+            placeholder={recipientId ? `💬 Private Nachricht an ${targetRecipientEmp?.name}...` : "Nachricht an das Team schreiben..."}
             className="flex-1 rounded-2xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm leading-relaxed placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
           />
 
