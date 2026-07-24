@@ -21,6 +21,14 @@ export async function GET(request: NextRequest) {
   if (!url || !sr) return jsonNoStore({ error: "Server nicht konfiguriert" }, { status: 500 })
   const admin = createAdminClient(url!, sr!, { auth: { persistSession: false } })
 
+  // Nur ausführen, wenn der Admin das automatische Ausstempeln aktiviert hat
+  // (Einstellungen → „Automatisches Ausstempeln"). Standard: inaktiv, damit
+  // vergessene Stempelungen sichtbar bleiben und nicht stillschweigend gebucht werden.
+  const { data: autoSetting } = await admin.from("settings").select("value").eq("key", "auto_clockout").maybeSingle()
+  if ((autoSetting?.value ?? "false") !== "true") {
+    return NextResponse.json({ ok: true, closed: 0, skipped: "auto_clockout disabled" })
+  }
+
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" })
   const { data: open } = await admin.from("time_entries").select("id,employee_id,date,clock_in,break_minutes").is("clock_out", null).lt("date", today)
   const entries = (open ?? []) as Entry[]
