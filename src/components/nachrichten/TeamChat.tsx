@@ -202,8 +202,9 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
         name: data.name,
         type: data.type,
       })
-    } catch (err: any) {
-      alert("Fehler beim Hochladen: " + (err.message || "Unbekannter Fehler"))
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unbekannter Fehler"
+      alert("Fehler beim Hochladen: " + msg)
     } finally {
       setUploading(false)
       e.target.value = ""
@@ -217,7 +218,7 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
     const currentAttachment = attachment
     try {
       const supabase = createClient()
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         employee_id: selectedEmp,
         content: text || (currentAttachment ? `[Datei: ${currentAttachment.name}]` : ""),
         type: "chat",

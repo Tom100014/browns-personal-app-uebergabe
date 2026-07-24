@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
       type: file.type.startsWith("image/") ? "image" : file.type.includes("pdf") ? "pdf" : "file",
       size: file.size,
     })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Upload fehlgeschlagen" }, { status: 500 })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Upload fehlgeschlagen"
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
