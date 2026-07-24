@@ -1,10 +1,11 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import {
   Send, Trash2, Eraser, MessageSquare, Users, Wifi,
   Paperclip, FileText, Image as ImageIcon, X, Lock, Download,
-  CheckCheck, Maximize2
+  CheckCheck, Maximize2, ArrowLeft
 } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import type { Employee, Message, CoverageRequest } from "@/types"
@@ -20,6 +21,8 @@ interface Props {
   currentEmployeeId?: string
   selfEmployeeId?: string
   isAdmin?: boolean
+  backUrl?: string
+  fullScreenMobile?: boolean
 }
 
 const MAX_CHAT_ITEMS = 140
@@ -67,7 +70,16 @@ function getMsgRecipient(msg?: Message | null): string | null {
   return ((msg.recipient_id || meta.recipient_id) as string) || null
 }
 
-export default function TeamChat({ messages: initial, employees = [], coverageRequests = [], currentEmployeeId, selfEmployeeId, isAdmin = false }: Props) {
+export default function TeamChat({
+  messages: initial,
+  employees = [],
+  coverageRequests = [],
+  currentEmployeeId,
+  selfEmployeeId,
+  isAdmin = false,
+  backUrl,
+  fullScreenMobile = false,
+}: Props) {
   const [messages, setMessages] = useState<Message[]>(() => orderMessages(initial || []))
   const [content, setContent] = useState("")
   
@@ -292,32 +304,50 @@ export default function TeamChat({ messages: initial, employees = [], coverageRe
   }, [recipientId, empById])
 
   return (
-    <section aria-label="Team-Chat" className="w-full max-w-7xl mx-auto flex flex-col h-[650px] bg-white rounded-3xl border border-gray-200 shadow-md overflow-hidden relative">
-      
+    <section
+      aria-label="Team-Chat"
+      className={cn(
+        "w-full max-w-7xl mx-auto flex flex-col bg-white overflow-hidden relative shadow-md border border-gray-200",
+        fullScreenMobile
+          ? "fixed inset-0 sm:static z-50 sm:z-auto h-[100dvh] sm:h-[650px] w-screen sm:w-full rounded-none sm:rounded-3xl border-0 sm:border"
+          : "h-[650px] rounded-3xl"
+      )}
+    >
       {/* Header mit Empfänger- & Absender-Auswahl */}
-      <div className="shrink-0 border-b border-gray-100 bg-gradient-to-r from-amber-500/10 via-white to-amber-500/5 px-4 py-3.5 sm:px-6">
+      <div className="shrink-0 border-b border-gray-100 bg-gradient-to-r from-amber-500/10 via-white to-amber-500/5 px-4 py-3 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-md">
+            {backUrl && (
+              <Link
+                href={backUrl}
+                className="inline-flex items-center gap-1.5 rounded-2xl bg-gray-100 hover:bg-amber-500 hover:text-white px-3 py-2 text-xs font-extrabold text-gray-800 transition shrink-0 shadow-xs border border-gray-200"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Dashboard</span>
+              </Link>
+            )}
+
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-md">
               <MessageSquare className="h-5 w-5" />
             </div>
-            <div>
+
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="font-extrabold text-base text-gray-900">
-                  {recipientId ? `🔒 1:1 Privat-Chat mit ${targetRecipientEmp?.name || "Mitarbeiter"}` : "👥 Team-Chat (Öffentlich)"}
+                <h2 className="font-extrabold text-sm sm:text-base text-gray-900 truncate">
+                  {recipientId ? `🔒 Privat mit ${targetRecipientEmp?.name || "Mitarbeiter"}` : "👥 Team-Chat (Öffentlich)"}
                 </h2>
               </div>
               <p className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
                 <span className="flex items-center gap-1 font-semibold">
                   <Users className="h-3.5 w-3.5 text-gray-400" />
-                  {employees.length} Teammitglieder
+                  {employees.length} Team
                 </span>
                 <span className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold",
                   liveState === "connected" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-amber-50 text-amber-700 border border-amber-200"
                 )}>
                   <Wifi className="h-3 w-3" />
-                  {liveState === "connected" ? "Live Verbunden" : "Verbinden..."}
+                  {liveState === "connected" ? "Live" : "Verbinden..."}
                 </span>
               </p>
             </div>
@@ -326,11 +356,11 @@ export default function TeamChat({ messages: initial, employees = [], coverageRe
           {/* Steuerung & Empfänger Auswahl */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Empfänger Auswahl */}
-            <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs shadow-xs">
+            <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs shadow-xs max-w-full">
               <select
                 value={recipientId}
                 onChange={e => setRecipientId(e.target.value)}
-                className="bg-transparent font-bold text-gray-800 focus:outline-none cursor-pointer"
+                className="bg-transparent font-bold text-gray-800 focus:outline-none cursor-pointer truncate"
               >
                 <option value="">👥 Team (Öffentlich)</option>
                 <optgroup label="🔒 Private 1:1 Nachricht:">

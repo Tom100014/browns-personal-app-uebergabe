@@ -6,9 +6,10 @@ import { entryHours, shiftHours, formatHours, formatEuro } from "@/lib/hours"
 import { formatDayLabel } from "@/lib/coverage"
 import LiveRefresh from "@/components/realtime/LiveRefresh"
 import RingProgress from "@/components/charts/RingProgress"
+import TimeTracker from "@/components/zeiterfassung/TimeTracker"
 import { format, startOfWeek, endOfWeek, addDays, startOfMonth, endOfMonth } from "date-fns"
 import { de } from "date-fns/locale"
-import type { Shift } from "@/types"
+import type { Shift, TimeEntry } from "@/types"
 
 type ChatMsg = { id: string; content: string; created_at: string; type: string; employee_id: string | null; employee?: { name?: string; color?: string } | null }
 type Abs = { id: string; type: string; start_date: string; status: string }
@@ -35,7 +36,7 @@ export default async function PortalHome() {
   const greeting = hour < 11 ? "Guten Morgen" : hour < 17 ? "Guten Tag" : "Guten Abend"
   const GreetingIcon = hour < 11 ? Sun : hour < 17 ? CloudSun : Moon
 
-  const [{ data: nextShifts }, { data: weekEntries }, { data: weekShiftsOwn }, { count: openCoverageCount }, { data: chat }, { data: myAbs }, { data: monthEntries }, { data: pay }, { data: directory }] = await Promise.all([
+  const [{ data: nextShifts }, { data: weekEntries }, { data: weekShiftsOwn }, { count: openCoverageCount }, { data: chat }, { data: myAbs }, { data: monthEntries }, { data: pay }, { data: directory }, { data: myEntries }] = await Promise.all([
     supabase.from("shifts").select("*").eq("employee_id", me.id).neq("status", "absent").gte("date", today).order("date").order("start_time").limit(3),
     supabase.from("time_entries").select("clock_in,clock_out,break_minutes").eq("employee_id", me.id).gte("date", weekStart).lte("date", weekEnd),
     supabase.from("shifts").select("date,start_time,end_time,position,status").eq("employee_id", me.id).neq("status", "absent").gte("date", weekStart).lte("date", weekEnd).order("start_time"),
@@ -45,6 +46,7 @@ export default async function PortalHome() {
     supabase.from("time_entries").select("clock_in,clock_out,break_minutes").eq("employee_id", me.id).gte("date", monthStart).lte("date", monthEnd),
     supabase.from("employee_private").select("hourly_wage").eq("employee_id", me.id).maybeSingle(),
     supabase.from("employee_directory").select("id,name,color"),
+    supabase.from("time_entries").select("*").eq("employee_id", me.id).order("created_at", { ascending: false }).limit(10),
   ])
 
   const shifts = (nextShifts ?? []) as Shift[]
@@ -119,10 +121,10 @@ export default async function PortalHome() {
   ]
 
   return (
-    <div className="min-h-full max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8">
+    <div className="min-h-full max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8 space-y-6">
       <LiveRefresh tables={["messages", "shifts", "coverage_requests", "absences", "time_entries"]} />
       
-      <header className="mb-6 flex items-center justify-between gap-4 lg:hidden">
+      <header className="mb-4 flex items-center justify-between gap-4 lg:hidden">
         <Link href="/portal/stempeln" className="text-charcoal-light">
           <Clock className="h-5 w-5" />
         </Link>
@@ -133,39 +135,58 @@ export default async function PortalHome() {
         </Link>
       </header>
 
+      {/* Hero Greeting Header */}
+      <div className="glass-card rounded-3xl p-6 sm:p-8 flex items-center justify-between gap-6 relative overflow-hidden bg-gradient-to-r from-brand-500/10 via-white to-amber-500/5 border border-brand-200/60 shadow-sm">
+        <div className="flex items-center gap-4 relative z-10 min-w-0">
+          <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-brand-500 text-white shadow-md shrink-0">
+            <GreetingIcon className="h-7 w-7 sm:h-8 sm:w-8" />
+          </div>
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-700 text-xs font-bold uppercase tracking-wider mb-1">
+              <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+              {greeting}, {firstName}!
+            </div>
+            <h1 className="truncate text-2xl font-extrabold text-charcoal sm:text-3xl tracking-tight">
+              Browns Personal Portal
+            </h1>
+            <p className="mt-0.5 text-xs font-medium text-gray-500 capitalize">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })}</p>
+          </div>
+        </div>
+
+        <div className="hidden sm:flex flex-col items-end gap-2 text-right relative z-10 shrink-0">
+          <Link href="/portal/profil" className="spring-press flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-gray-200/80 shadow-xs hover:shadow-sm">
+            <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold text-white shadow-xs" style={{ backgroundColor: me.color || "#c74806" }}>
+              {initials(me.name)}
+            </span>
+            <span className="text-xs font-bold text-charcoal">{firstName}</span>
+          </Link>
+          <span className="px-3 py-1 rounded-xl bg-emerald-500/15 text-emerald-800 text-xs font-extrabold border border-emerald-500/30">
+            {statusLabel}
+          </span>
+        </div>
+      </div>
+
+      {/* Direkte Stempeluhr auf der Hauptseite */}
+      <div className="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
+          <h2 className="text-base font-extrabold text-gray-900 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-amber-500" /> Live-Stempeluhr
+          </h2>
+          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+            Echtzeit Erfassung
+          </span>
+        </div>
+        <TimeTracker
+          entries={(myEntries ?? []) as TimeEntry[]}
+          employees={[me]}
+          locationConfigured={false}
+          lockedEmployeeId={me.id}
+          hero={true}
+        />
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="space-y-6">
-          {/* Aufgeräumter Hero Header ohne doppeltes Logo */}
-          <div className="glass-card rounded-3xl p-6 sm:p-8 flex items-center justify-between gap-6 relative overflow-hidden bg-gradient-to-r from-brand-500/10 via-white to-amber-500/5 border border-brand-200/60 shadow-sm">
-            <div className="flex items-center gap-4 relative z-10 min-w-0">
-              <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-brand-500 text-white shadow-md shrink-0">
-                <GreetingIcon className="h-7 w-7 sm:h-8 sm:w-8" />
-              </div>
-              <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-700 text-xs font-bold uppercase tracking-wider mb-1">
-                  <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-                  {greeting}, {firstName}!
-                </div>
-                <h1 className="truncate text-2xl font-extrabold text-charcoal sm:text-3xl tracking-tight">
-                  Browns Personal Portal
-                </h1>
-                <p className="mt-0.5 text-xs font-medium text-gray-500 capitalize">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })}</p>
-              </div>
-            </div>
-
-            <div className="hidden sm:flex flex-col items-end gap-2 text-right relative z-10 shrink-0">
-              <Link href="/portal/profil" className="spring-press flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-gray-200/80 shadow-xs hover:shadow-sm">
-                <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold text-white shadow-xs" style={{ backgroundColor: me.color || "#c74806" }}>
-                  {initials(me.name)}
-                </span>
-                <span className="text-xs font-bold text-charcoal">{firstName}</span>
-              </Link>
-              <span className="px-3 py-1 rounded-xl bg-emerald-500/15 text-emerald-800 text-xs font-extrabold border border-emerald-500/30">
-                {statusLabel}
-              </span>
-            </div>
-          </div>
-
           {/* Metric Cards Grid */}
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
             {tiles.map(({ href, icon: Icon, title, value, tone, badge }) => (

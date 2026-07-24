@@ -14,16 +14,14 @@ export default async function PortalChat() {
   ])
 
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden p-2 sm:p-4 max-w-7xl mx-auto w-full">
-      <div className="mb-3 shrink-0 text-center sm:text-left">
-        <h1 className="text-xl font-bold text-gray-900">WhatsApp Team-Chat</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Schreib mit deinen Kollegen & erstelle 1:1 Nachrichten</p>
-      </div>
+    <div className="flex min-h-0 flex-col overflow-hidden p-0 sm:p-4 max-w-7xl mx-auto w-full">
       <TeamChat
         messages={((messages ?? []) as Message[]).reverse()}
         employees={(employees ?? []) as Employee[]}
         coverageRequests={(coverage ?? []) as CoverageRequest[]}
         selfEmployeeId={staff.employee.id}
+        backUrl="/portal"
+        fullScreenMobile={true}
       />
     </div>
   )
