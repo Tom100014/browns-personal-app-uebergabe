@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server"
-import { 
+import { getCurrentStaff } from "@/lib/staff"
+import {
   Users, 
   Calendar, 
   UserCheck, 
@@ -21,7 +22,7 @@ import { shiftHours, formatHours } from "@/lib/hours"
 import { PLANNING_EMAIL_SUFFIX } from "@/lib/planning-profile"
 import OccupancyForecast from "@/components/belegung/OccupancyForecast"
 import LiveRefresh from "@/components/realtime/LiveRefresh"
-import WeekHoursChart from "@/components/charts/WeekHoursChart"
+import WeekHoursChart from "@/components/charts/WeekHoursChartLazy"
 import ActionCenter, { type DashboardActionItem } from "@/components/dashboard/ActionCenter"
 import DailyMorningBriefing from "@/components/dashboard/DailyMorningBriefing"
 import type { CoverageRequest } from "@/types"
@@ -36,6 +37,8 @@ const initials = (name?: string) => (name ?? "—").split(" ").map(n => n[0]).jo
 
 export default async function DashboardPage() {
   const supabase = await createClient()
+  // Already resolved (and cached for this request) by the layout's auth check.
+  const staff = await getCurrentStaff()
   const TZ = "Europe/Berlin"
   const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ }) // yyyy-MM-dd (Café-Zeit)
   const nowHHMM = new Date().toLocaleTimeString("de-DE", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false })
@@ -51,7 +54,6 @@ export default async function DashboardPage() {
   const GreetingIcon = hour < 11 ? Sun : hour < 17 ? CloudSun : Moon
 
   const [
-    { data: { user } },
     { count: employeeCount },
     { data: todayShifts },
     { data: openEntries },
@@ -64,7 +66,6 @@ export default async function DashboardPage() {
     { data: weekShifts },
     { data: todayEntries },
   ] = await Promise.all([
-    supabase.auth.getUser(),
     supabase.from("employees").select("id", { count: "exact", head: true }),
     supabase.from("shifts").select("id,employee_id,status,start_time,end_time,position,employee:employees(name,color)").eq("date", today).order("start_time"),
     supabase.from("time_entries").select("id,clock_in,employee:employees(name,color,position)").is("clock_out", null),
@@ -205,15 +206,15 @@ export default async function DashboardPage() {
     }] : []),
   ]
 
-  // Current user employee profile
-  let { data: currentEmp } = user ? await supabase.from("employees").select("name, avatar").eq("auth_user_id", user.id).maybeSingle() : { data: null }
-  if (!currentEmp && user?.email) {
-    const { data: byEmail } = await supabase.from("employees").select("name, avatar").ilike("email", user.email).maybeSingle()
+  // Current user employee profile (staff.employee already resolved by the layout's cached auth check)
+  let currentEmp: { name?: string; avatar?: string } | null = staff?.employee ?? null
+  if (!currentEmp && staff?.email) {
+    const { data: byEmail } = await supabase.from("employees").select("name, avatar").ilike("email", staff.email).maybeSingle()
     currentEmp = byEmail
   }
-  const empName = currentEmp?.name ?? (user?.email?.includes("zeynep") ? "Zeynep Kara" : "Tom Schuh")
+  const empName = currentEmp?.name ?? (staff?.email?.includes("zeynep") ? "Zeynep Kara" : "Tom Schuh")
   const firstName = empName.split(" ")[0]
-  const userAvatar = currentEmp?.avatar ?? (user?.email?.includes("zeynep") ? "/avatars/zeynep-kara.jpg" : null)
+  const userAvatar = currentEmp?.avatar ?? (staff?.email?.includes("zeynep") ? "/avatars/zeynep-kara.jpg" : null)
 
   const MOTIVATIONAL_QUOTES = [
     "✨ „Ein starkes Team beginnt mit einer inspirierenden Leitung. Schön, dass du da bist!“",
@@ -225,7 +226,7 @@ export default async function DashboardPage() {
   const dailyQuote = MOTIVATIONAL_QUOTES[todayAnchor.getDate() % MOTIVATIONAL_QUOTES.length]
 
   return (
-    <div className="max-w-7xl space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="space-y-6">
       <LiveRefresh tables={["shifts", "time_entries", "absences", "coverage_requests", "coverage_offers", "employees", "knowledge_docs"]} />
 
       <DailyMorningBriefing
@@ -266,7 +267,7 @@ export default async function DashboardPage() {
               {dailyQuote}
             </div>
 
-            <p className="mt-2 text-xs capitalize leading-relaxed text-slate-500">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })} · <span className="font-mono text-slate-400">{user?.email}</span></p>
+            <p className="mt-2 text-xs capitalize leading-relaxed text-slate-500">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })} · <span className="font-mono text-slate-400">{staff?.email}</span></p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:min-w-[360px]">

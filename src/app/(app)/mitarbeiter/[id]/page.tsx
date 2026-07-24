@@ -19,7 +19,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   const merged = { ...employee, ...(priv ?? {}) } as Employee
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl">
+    <div className="min-w-0">
       <EmployeeDetail
         employee={merged}
         documents={(documents ?? []) as EmployeeDocument[]}

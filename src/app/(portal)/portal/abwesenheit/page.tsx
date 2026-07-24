@@ -12,7 +12,7 @@ export default async function PortalAbwesenheit() {
     .order("created_at", { ascending: false })
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl">
+    <div className="min-w-0">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">Abwesenheit</h1>
         <p className="text-gray-500 text-sm mt-0.5">Urlaub, Krankmeldung oder Frei-Wunsch beantragen</p>

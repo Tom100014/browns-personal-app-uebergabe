@@ -15,7 +15,7 @@ export default async function PortalDienstplan() {
     .order("date").order("start_time")
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl">
+    <div className="min-w-0">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">Mein Dienstplan</h1>
         <p className="text-gray-500 text-sm mt-0.5">Dein Plan ist verbindlich — nur melden, wenn ein Tag nicht passt</p>
