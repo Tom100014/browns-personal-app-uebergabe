@@ -16,6 +16,7 @@ interface Props {
   lockedEmployeeId?: string
   hero?: boolean
   isAdmin?: boolean
+  showHistory?: boolean
 }
 
 export default function TimeTracker({
@@ -26,6 +27,7 @@ export default function TimeTracker({
   lockedEmployeeId,
   hero = false,
   isAdmin = false,
+  showHistory = true,
 }: Props) {
   const [entries, setEntries] = useState<TimeEntry[]>(initialEntries)
   const [selectedEmployee, setSelectedEmployee] = useState(lockedEmployeeId ?? employees[0]?.id ?? "")
@@ -182,6 +184,14 @@ export default function TimeTracker({
 
   const todayEntries = entries.filter(e => e.date === todayStr)
   const totalToday = todayEntries.reduce((s, e) => s + (e.total_hours ?? 0), 0)
+
+  // Verlauf immer chronologisch nach Datum (neueste zuerst), dann nach Startzeit.
+  const historyEntries = useMemo(
+    () => [...entries]
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.clock_in ?? "").localeCompare(a.clock_in ?? ""))
+      .slice(0, 50),
+    [entries],
+  )
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -420,10 +430,11 @@ export default function TimeTracker({
         )}
       </div>
 
-      {/* Verlauf */}
+      {/* Verlauf — nur auf der eigenen Stempel-Seite, nicht auf der Portal-Startseite */}
+      {showHistory && (
       <div className="bg-white border border-gray-200 rounded-xl p-5">
         <h2 className="font-semibold text-gray-900 mb-4">Verlauf</h2>
-        {entries.length === 0 ? (
+        {historyEntries.length === 0 ? (
           <p className="text-gray-400 text-sm">Keine Einträge vorhanden.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -439,7 +450,7 @@ export default function TimeTracker({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {entries.slice(0, 50).map(entry => {
+                {historyEntries.map(entry => {
                   const emp = employees.find(e => e.id === entry.employee_id)
                   return (
                     <tr key={entry.id}>
@@ -449,7 +460,7 @@ export default function TimeTracker({
                           <span className="text-gray-800 font-medium">{emp?.name ?? "—"}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 pr-4 text-gray-500">{entry.date}</td>
+                      <td className="py-2.5 pr-4 text-gray-500 whitespace-nowrap capitalize">{format(new Date(entry.date + "T12:00:00"), "EEE dd.MM.yy", { locale: de })}</td>
                       <td className="py-2.5 pr-4 text-gray-700">{entry.clock_in.slice(0,5)}</td>
                       <td className="py-2.5 pr-4 text-gray-700">
                         {entry.clock_out?.slice(0,5) ?? <span className="text-emerald-500 font-medium">aktiv</span>}
@@ -465,6 +476,7 @@ export default function TimeTracker({
           </div>
         )}
       </div>
+      )}
 
       {/* Modal: Nachträgliches Einstempeln (Admin) */}
       {showRetroModal && (

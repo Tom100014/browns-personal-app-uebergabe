@@ -182,6 +182,7 @@ export default async function PortalHome() {
           locationConfigured={false}
           lockedEmployeeId={me.id}
           hero={true}
+          showHistory={false}
         />
       </div>
 

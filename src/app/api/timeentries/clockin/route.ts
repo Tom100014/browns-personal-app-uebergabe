@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
-import { createClient } from "@/lib/supabase-server"
 import { getCurrentStaff } from "@/lib/staff"
 import { entryHours } from "@/lib/hours"
 import { ipAllowed } from "@/lib/wifi"
@@ -124,17 +123,33 @@ export async function PATCH(request: NextRequest) {
 
   const clockOut = localTime()
   const total = entryHours({ clock_in: entry.clock_in, clock_out: clockOut, break_minutes: breakMinutes })
-  const { data, error } = await admin.from("time_entries")
-    .update({
-      clock_out: clockOut,
-      break_minutes: breakMinutes,
-      total_hours: Math.round(total * 100) / 100,
-      shift_revenue: Math.round(finalRevenue * 100) / 100,
-    })
-    .eq("id", entry.id)
-    .select("*, employee:employees(*)")
-    .maybeSingle()
+  const targetId = entry.id
+  const baseUpdate = {
+    clock_out: clockOut,
+    break_minutes: breakMinutes,
+    total_hours: Math.round(total * 100) / 100,
+  }
 
-  if (error) return jsonNoStore({ error: "Ausstempeln fehlgeschlagen: " + error.message }, { status: 400 })
-  return jsonNoStore({ ok: true, entry: data })
+  // Den Schichtumsatz nach Möglichkeit speichern — aber eine fehlende
+  // Datenbankspalte darf das Ausstempeln NIEMALS blockieren. Ist die Spalte
+  // `shift_revenue` (noch) nicht in der DB angelegt (Migration nicht
+  // eingespielt), meldet PostgREST das als Schema-Cache-Fehler (PGRST204);
+  // in dem Fall wird ohne den Umsatz erneut aktualisiert, damit die Schicht
+  // zuverlässig beendet wird.
+  const runUpdate = (withRevenue: boolean) =>
+    admin.from("time_entries")
+      .update(withRevenue
+        ? { ...baseUpdate, shift_revenue: Math.round(finalRevenue * 100) / 100 }
+        : baseUpdate)
+      .eq("id", targetId)
+      .select("*, employee:employees(*)")
+      .maybeSingle()
+
+  let result = await runUpdate(true)
+  const missingColumn = result.error
+    && (result.error.code === "PGRST204" || /shift_revenue|schema cache/i.test(result.error.message ?? ""))
+  if (missingColumn) result = await runUpdate(false)
+
+  if (result.error) return jsonNoStore({ error: "Ausstempeln fehlgeschlagen: " + result.error.message }, { status: 400 })
+  return jsonNoStore({ ok: true, entry: result.data })
 }
