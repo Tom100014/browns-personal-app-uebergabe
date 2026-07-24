@@ -44,74 +44,77 @@ export async function GET(request: NextRequest) {
   const shifts = (todayShifts ?? []) as Shift[]
   const clockedInIds = new Set((todayEntries ?? []).map((e: { employee_id: string }) => e.employee_id))
 
-  // Find missed punches: shifts that have started but no clock-in
-  const missedPunches = shifts.filter(s =>
-    s.employee_id
-    && s.start_time.slice(0, 5) <= nowHHMM
-    && !clockedInIds.has(s.employee_id)
-  )
+  // Vergessene Stempelungen: begonnene Schicht ohne Einstempelung. Pro
+  // Mitarbeiter nur einmal (auch bei mehreren Schichten am selben Tag).
+  const missedByEmployee = new Map<string, Shift>()
+  for (const s of shifts) {
+    if (s.employee_id && s.start_time.slice(0, 5) <= nowHHMM && !clockedInIds.has(s.employee_id)) {
+      if (!missedByEmployee.has(s.employee_id)) missedByEmployee.set(s.employee_id, s)
+    }
+  }
 
-  if (missedPunches.length === 0) {
+  if (missedByEmployee.size === 0) {
     return NextResponse.json({ ok: true, notified: 0, missedCount: 0 })
   }
 
-  // Check if we already sent a notification for these shifts today
-  const { data: sentNotifications } = await admin
+  // Deduplizierung pro Mitarbeiter pro Tag: bereits benachrichtigte überspringen,
+  // damit ein stündlicher Cron nicht mehrfach für denselben Fall meldet.
+  const dedupeKeys = [...missedByEmployee.keys()].map(id => `missed-punch:${today}:${id}`)
+  const { data: alreadySent } = await admin
     .from("notification_dispatches")
     .select("dedupe_key")
-    .eq("dedupe_key", `missed-punch:${today}`)
-    .maybeSingle()
+    .in("dedupe_key", dedupeKeys)
+  const sentKeys = new Set((alreadySent ?? []).map((r: { dedupe_key: string }) => r.dedupe_key))
 
-  // If already notified, don't spam
-  if (sentNotifications) {
-    return NextResponse.json({ ok: true, notified: 0, missedCount: missedPunches.length, alreadyNotified: true })
+  const newMissed = [...missedByEmployee.entries()].filter(([id]) => !sentKeys.has(`missed-punch:${today}:${id}`))
+  if (newMissed.length === 0) {
+    return NextResponse.json({ ok: true, notified: 0, missedCount: missedByEmployee.size, alreadyNotified: true })
   }
 
-  // Get all admin users to notify
+  // Erst den Dispatch beanspruchen (verhindert Doppel-Push bei parallelen Läufen),
+  // dann versenden. Nur tatsächlich neu beanspruchte Mitarbeiter werden gemeldet.
+  const claimed: { id: string; shift: Shift }[] = []
+  for (const [id, shift] of newMissed) {
+    const { error: claimError } = await admin
+      .from("notification_dispatches")
+      .insert({ dedupe_key: `missed-punch:${today}:${id}` })
+    if (!claimError) claimed.push({ id, shift })
+  }
+  if (claimed.length === 0) {
+    return NextResponse.json({ ok: true, notified: 0, missedCount: missedByEmployee.size, alreadyNotified: true })
+  }
+
+  // Admins/Manager als Empfänger
   const { data: admins } = await admin
     .from("employees")
-    .select("id,email,phone,role,notifications_enabled")
+    .select("id,role")
     .in("role", ["owner", "admin", "manager"])
 
-  if (!admins || admins.length === 0) {
-    return NextResponse.json({ ok: true, notified: 0, missedCount: missedPunches.length })
-  }
-
-  // Get admin subscriptions
-  const adminIds = admins.map(a => a.id)
-  const { data: subs } = await admin
-    .from("push_subscriptions")
-    .select("id,endpoint,p256dh,auth,employee_id")
-    .in("employee_id", adminIds)
+  const adminIds = (admins ?? []).map(a => a.id)
+  const { data: subs } = adminIds.length
+    ? await admin.from("push_subscriptions").select("id,endpoint,p256dh,auth,employee_id").in("employee_id", adminIds)
+    : { data: [] }
 
   if (!subs || subs.length === 0) {
-    return NextResponse.json({ ok: true, notified: 0, missedCount: missedPunches.length })
+    return NextResponse.json({ ok: true, notified: 0, missedCount: missedByEmployee.size, newlyClaimed: claimed.length })
   }
 
-  // Prepare notification payload
-  const title = `⏰ ${missedPunches.length} Mitarbeiter vergessen zu stempeln`
-  const body = missedPunches.length === 1
-    ? `${missedPunches[0].employee?.name} – Schicht: ${missedPunches[0].position}`
-    : `${missedPunches.length} Mitarbeiter · Details im Dashboard`
+  const title = claimed.length === 1
+    ? "⏰ Vergessen zu stempeln"
+    : `⏰ ${claimed.length} Mitarbeiter vergessen zu stempeln`
+  const body = claimed.length === 1
+    ? `${claimed[0].shift.employee?.name ?? "Mitarbeiter"} – Schicht seit ${claimed[0].shift.start_time.slice(0, 5)} Uhr (${claimed[0].shift.position})`
+    : `${claimed.map(c => c.shift.employee?.name ?? "Mitarbeiter").join(", ")} · Details im Dashboard`
 
-  // Send push notifications using webpush
-  webpush.setVapidDetails("mailto:admin@browns.at", pub!, priv!)
-  const payload = JSON.stringify({
-    title,
-    body,
-    url: "/dashboard",
-    tag: "missed-punch",
-  })
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:admin@browns.at", pub!, priv!)
+  const payload = JSON.stringify({ title, body, url: "/dashboard", tag: "missed-punch" })
 
   let sent = 0
   const dead: string[] = []
   for (const subscription of subs as Sub[]) {
     try {
       await webpush.sendNotification(
-        {
-          endpoint: subscription.endpoint,
-          keys: { p256dh: subscription.p256dh, auth: subscription.auth },
-        },
+        { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
         payload,
       )
       sent++
@@ -125,13 +128,5 @@ export async function GET(request: NextRequest) {
     await admin.from("push_subscriptions").delete().in("endpoint", dead)
   }
 
-  // Record that we sent this notification (deduplication key)
-  const { error: dispatchError } = await admin.from("notification_dispatches").insert({
-    dedupe_key: `missed-punch:${today}`,
-  })
-  if (dispatchError) {
-    // Ignore errors - deduplication might already be set from the push/notify endpoint
-  }
-
-  return NextResponse.json({ ok: true, notified: sent, missedCount: missedPunches.length, removed: dead.length })
+  return NextResponse.json({ ok: true, notified: sent, missedCount: missedByEmployee.size, newlyClaimed: claimed.length, removed: dead.length })
 }

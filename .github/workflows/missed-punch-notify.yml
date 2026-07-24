@@ -1,0 +1,50 @@
+name: Missed-punch admin notify
+
+# Kostenloser Stundentakt für die Admin-Benachrichtigung bei vergessenem
+# Stempeln — Ersatz für einen Vercel-Cron, der auf dem Hobby-Plan nur
+# täglich laufen darf. Der Endpunkt rechnet selbst in Berliner Zeit,
+# meldet nur begonnene Schichten ohne Stempelung und dedupliziert pro
+# Mitarbeiter pro Tag, daher ist ein stündlicher Aufruf unbedenklich.
+#
+# Einrichtung (einmalig): Repository → Settings → Secrets and variables →
+# Actions → zwei Secrets anlegen:
+#   PROD_APP_URL   z. B. https://browns-perso-app.vercel.app  (ohne / am Ende)
+#   CRON_SECRET    derselbe Wert wie in Vercel (Projekt-Environment-Variable)
+
+on:
+  schedule:
+    - cron: "0 * * * *" # stündlich (UTC); der Endpunkt filtert selbst nach Café-Zeit
+  workflow_dispatch: {} # manueller Test per Knopfdruck
+
+permissions:
+  contents: read
+
+concurrency:
+  group: missed-punch-notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Endpunkt aufrufen
+        env:
+          PROD_APP_URL: ${{ secrets.PROD_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$PROD_APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "PROD_APP_URL oder CRON_SECRET nicht gesetzt — übersprungen."
+            echo "Secrets im Repository setzen, um den automatischen Admin-Push zu aktivieren."
+            exit 0
+          fi
+          status=$(curl -sS -m 30 -o /tmp/body.txt -w "%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "${PROD_APP_URL%/}/api/timeentries/missed-punch-notify")
+          echo "HTTP $status"
+          cat /tmp/body.txt || true
+          echo
+          if [ "$status" != "200" ]; then
+            echo "Endpunkt antwortete mit $status"
+            exit 1
+          fi
