@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Versuche zunächst Insert mit erweitertem Payload
-    let { data, error } = await admin
+    const { data: directData, error: directError } = await admin
       .from("messages")
       .insert({
         ...payload,
@@ -48,8 +48,10 @@ export async function POST(req: NextRequest) {
       .select("*, employee:employees(id,name,color,position,role)")
       .single()
 
+    let data = directData
+
     // Fallback: Falls Supabase-Tabellenschema noch keine eigenen Spalten hat, nur Grundfelder + JSONB meta einfügen
-    if (error) {
+    if (directError) {
       const fallbackResult = await admin
         .from("messages")
         .insert(payload)
