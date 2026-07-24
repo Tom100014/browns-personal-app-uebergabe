@@ -15,7 +15,7 @@ export default async function MitarbeiterPage({ searchParams }: MitarbeiterPageP
   const planningOnly = requestedFilter === "planung"
   const [supabase, staff] = await Promise.all([createClient(), getCurrentStaff()])
   const [{ data: employeeRows }, { data: pay }, intelligence, { data: primaryAdmin }] = await Promise.all([
-    supabase.from("employees").select("*").order("name"),
+    supabase.from("employees").select("id,name,email,phone,position,role,employment_type,color,start_date,created_at,auth_user_id").order("name"),
     supabase.from("employee_private").select("employee_id,hourly_wage"),
     buildEmployeeIntelligence(supabase, { days: 56, maxDocs: 180 }),
     supabase.from("settings").select("value").eq("key", "primary_admin_employee_id").maybeSingle(),

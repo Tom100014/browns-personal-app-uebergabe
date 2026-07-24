@@ -6,9 +6,9 @@ export default async function VertretungPage() {
   const supabase = await createClient()
   const [{ data: coverage }, { data: employees }] = await Promise.all([
     supabase.from("coverage_requests")
-      .select("*, offers:coverage_offers(*, employee:employees(*))")
+      .select("*, offers:coverage_offers(*, employee:employees(id,name,color,position,role))")
       .order("created_at", { ascending: false }),
-    supabase.from("employees").select("*").order("name"),
+    supabase.from("employees").select("id,name,email,phone,position,role,employment_type,color,start_date,created_at,auth_user_id").order("name"),
   ])
 
   return (

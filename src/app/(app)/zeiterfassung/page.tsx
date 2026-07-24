@@ -9,10 +9,10 @@ export default async function ZeiterfassungPage() {
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" })
 
   const [{ data: entries }, { data: employees }, { data: setting }, { data: shifts }] = await Promise.all([
-    supabase.from("time_entries").select("*, employee:employees(*)").order("created_at", { ascending: false }).limit(100),
-    supabase.from("employees").select("*").order("name"),
+    supabase.from("time_entries").select("*, employee:employees(id,name,color,position,role)").order("created_at", { ascending: false }).limit(100),
+    supabase.from("employees").select("id,name,email,phone,position,role,employment_type,color,start_date,created_at,auth_user_id").order("name"),
     supabase.from("settings").select("value").eq("key", "wifi_ip").maybeSingle(),
-    supabase.from("shifts").select("*, employee:employees(*)").gte("date", sevenDaysAgo).lte("date", todayStr),
+    supabase.from("shifts").select("*, employee:employees(id,name,color,position,role)").gte("date", sevenDaysAgo).lte("date", todayStr),
   ])
 
   return (

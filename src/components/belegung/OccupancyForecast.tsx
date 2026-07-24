@@ -24,24 +24,24 @@ function wxIcon(code: number) {
 }
 
 function wxBgImage(code: number): string {
-  if (code === 0) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80"
-  if (code <= 3) return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80"
-  if (code === 45 || code === 48) return "https://images.unsplash.com/photo-1487621167305-5d248087c724?auto=format&fit=crop&w=600&q=80"
-  if (code >= 51 && code <= 67) return "https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=600&q=80"
-  if (code >= 71 && code <= 77) return "https://images.unsplash.com/photo-1517299321529-639f8c26d4a1?auto=format&fit=crop&w=600&q=80"
-  if (code >= 80 && code <= 82) return "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=600&q=80"
-  if (code >= 95) return "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&w=600&q=80"
-  return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=600&q=80"
+  if (code === 0) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=250&q=50"
+  if (code <= 3) return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=250&q=50"
+  if (code === 45 || code === 48) return "https://images.unsplash.com/photo-1487621167305-5d248087c724?auto=format&fit=crop&w=250&q=50"
+  if (code >= 51 && code <= 67) return "https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=250&q=50"
+  if (code >= 71 && code <= 77) return "https://images.unsplash.com/photo-1517299321529-639f8c26d4a1?auto=format&fit=crop&w=250&q=50"
+  if (code >= 80 && code <= 82) return "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=250&q=50"
+  if (code >= 95) return "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&w=250&q=50"
+  return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=250&q=50"
 }
 
 function eventPhoto(type: string): string {
   const t = (type || "").toLowerCase()
-  if (t.includes("messe")) return "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=400&q=80"
-  if (t.includes("konzert") || t.includes("musik")) return "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=400&q=80"
-  if (t.includes("fest") || t.includes("volksfest") || t.includes("markt")) return "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80"
-  if (t.includes("sport") || t.includes("fussball") || t.includes("spiel")) return "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=400&q=80"
-  if (t.includes("feiertag") || t.includes("ferien")) return "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=400&q=80"
-  return "https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=400&q=80"
+  if (t.includes("messe")) return "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=250&q=50"
+  if (t.includes("konzert") || t.includes("musik")) return "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=250&q=50"
+  if (t.includes("fest") || t.includes("volksfest") || t.includes("markt")) return "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=250&q=50"
+  if (t.includes("sport") || t.includes("fussball") || t.includes("spiel")) return "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=250&q=50"
+  if (t.includes("feiertag") || t.includes("ferien")) return "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=250&q=50"
+  return "https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=250&q=50"
 }
 const dayName = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { weekday: "short" })
 const dayShort = (s: string) => new Date(s + "T12:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })

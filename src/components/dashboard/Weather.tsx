@@ -19,14 +19,14 @@ function iconFor(code: number) {
 }
 
 function wxBgImage(code: number): string {
-  if (code === 0) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80"
-  if (code <= 3) return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=400&q=80"
-  if (code === 45 || code === 48) return "https://images.unsplash.com/photo-1487621167305-5d248087c724?auto=format&fit=crop&w=400&q=80"
-  if (code >= 51 && code <= 67) return "https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=400&q=80"
-  if (code >= 71 && code <= 77) return "https://images.unsplash.com/photo-1517299321529-639f8c26d4a1?auto=format&fit=crop&w=400&q=80"
-  if (code >= 80 && code <= 82) return "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=400&q=80"
-  if (code >= 95) return "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&w=400&q=80"
-  return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=400&q=80"
+  if (code === 0) return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=250&q=50"
+  if (code <= 3) return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=250&q=50"
+  if (code === 45 || code === 48) return "https://images.unsplash.com/photo-1487621167305-5d248087c724?auto=format&fit=crop&w=250&q=50"
+  if (code >= 51 && code <= 67) return "https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=250&q=50"
+  if (code >= 71 && code <= 77) return "https://images.unsplash.com/photo-1517299321529-639f8c26d4a1?auto=format&fit=crop&w=250&q=50"
+  if (code >= 80 && code <= 82) return "https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=250&q=50"
+  if (code >= 95) return "https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&w=250&q=50"
+  return "https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=250&q=50"
 }
 
 /** Outdoor-area staffing hint based on weather (warm + dry = more Service outside). */

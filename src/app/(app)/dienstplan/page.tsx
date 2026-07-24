@@ -28,11 +28,11 @@ export default async function DienstplanPage({ searchParams }: DienstplanPagePro
   const [{ data: shifts }, { data: employees }, { data: priv }, { data: settingsRows }, { data: absences }] = await Promise.all([
     supabase
       .from("shifts")
-      .select("id,employee_id,date,start_time,end_time,position,note,status,created_at,employee:employees(*)")
+      .select("id,employee_id,date,start_time,end_time,position,note,status,created_at,employee:employees(id,name,color,position,role)")
       .gte("date", rangeStart)
       .lte("date", rangeEnd)
       .order("date"),
-    supabase.from("employees").select("*").order("name"),
+    supabase.from("employees").select("id,name,email,phone,position,role,employment_type,color,start_date,created_at,auth_user_id").order("name"),
     supabase.from("employee_private").select("employee_id,weekly_hours,hourly_wage"),
     supabase.from("settings").select("key,value").in("key", ["min_staffing", "opening_hours"]),
     supabase

@@ -5,8 +5,8 @@ import type { Employee } from "@/types"
 export default async function AbwesenheitenPage() {
   const supabase = await createClient()
   const [{ data: absences }, { data: employees }] = await Promise.all([
-    supabase.from("absences").select("*, employee:employees(*)").order("created_at", { ascending: false }),
-    supabase.from("employees").select("*").order("name"),
+    supabase.from("absences").select("*, employee:employees(id,name,color,position,role)").order("created_at", { ascending: false }),
+    supabase.from("employees").select("id,name,email,phone,position,role,employment_type,color,start_date,created_at,auth_user_id").order("name"),
   ])
   return (
     <div className="p-4 sm:p-6">
