@@ -75,8 +75,12 @@ export type MessageType = 'chat' | 'coverage_request' | 'coverage_offer' | 'cove
 export type Message = {
   id: string
   employee_id: string | null
+  recipient_id?: string | null
   content: string
   type: MessageType
+  attachment_url?: string | null
+  attachment_name?: string | null
+  attachment_type?: string | null
   meta?: CoverageMeta | null
   created_at: string
   employee?: Employee

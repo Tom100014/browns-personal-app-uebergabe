@@ -30,7 +30,7 @@ export default async function PortalStunden() {
   const total = weeks.reduce((s, w) => s + w.hours, 0)
 
   return (
-    <div className="min-w-0">
+    <div className="p-4 sm:p-6 max-w-2xl">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">Meine Stunden</h1>
         <p className="text-gray-500 text-sm mt-0.5">Deine erfassten Arbeitsstunden der letzten 8 Wochen</p>

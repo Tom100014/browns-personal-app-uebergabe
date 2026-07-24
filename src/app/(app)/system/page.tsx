@@ -86,7 +86,7 @@ export default async function SystemPage() {
   ]
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 max-w-3xl p-4 sm:p-6">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">System &amp; Integrationen</h1>
         <p className="text-gray-500 text-sm mt-0.5">Welche Dienste die App nutzt, welche Zugänge nötig sind und wo Schlüssel hinterlegt werden</p>

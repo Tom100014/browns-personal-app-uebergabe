@@ -12,7 +12,7 @@ export default async function VertretungPage() {
   ])
 
   return (
-    <div className="min-w-0">
+    <div className="p-4 sm:p-6 max-w-5xl">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">Vertretung</h1>
         <p className="text-gray-500 text-sm mt-0.5">

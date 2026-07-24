@@ -1,7 +1,10 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Send, LifeBuoy, Check, Clock, Hand, Trash2, Eraser, MessageSquare, Users, Wifi, ChevronDown, Edit3, Ban } from "lucide-react"
+import {
+  Send, LifeBuoy, Check, Clock, Hand, Trash2, Eraser, MessageSquare, Users, Wifi, ChevronDown, Edit3, Ban,
+  Paperclip, FileText, Image as ImageIcon, X, Lock, Globe, Download
+} from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import type { Employee, Message, CoverageRequest, CoverageOffer } from "@/types"
 import { cn } from "@/lib/utils"
@@ -19,6 +22,7 @@ interface Props {
 }
 
 const MAX_CHAT_ITEMS = 140
+const SENDER_KEY = "browns_chat_sender_emp_id"
 
 function messageTime(message: Message) {
   const parsed = Date.parse(message.created_at)
@@ -37,18 +41,29 @@ function mergeMessage(prev: Message[], next: Message) {
   return orderMessages([...prev, next])
 }
 
+type AttachmentInfo = {
+  url: string
+  name: string
+  type: string
+}
+
 export default function TeamChat({ messages: initial, employees, coverageRequests, currentEmployeeId, selfEmployeeId, isAdmin = false }: Props) {
   const [messages, setMessages] = useState<Message[]>(() => orderMessages(initial))
   const [coverageItems, setCoverageItems] = useState<CoverageRequest[]>(coverageRequests)
   const [content, setContent] = useState("")
-  // Admin-Standard: Zeynep Kara (Leitung) ist immer der voreingestellte Absender,
-  // andere Namen bleiben waehlbar.
+  
+  // 1:1 Direktnachricht Empfänger ("" = Öffentlich an alle im Team)
+  const [recipientId, setRecipientId] = useState<string>("")
+  
+  // Datei-Attachment State
+  const [attachment, setAttachment] = useState<AttachmentInfo | null>(null)
+  const [uploading, setUploading] = useState(false)
+
   const zeynepId = employees.find(e => e.name.trim().toLowerCase() === "zeynep kara")?.id
   const [selectedEmp, setSelectedEmp] = useState(selfEmployeeId ?? zeynepId ?? currentEmployeeId ?? employees[0]?.id ?? "")
   const [sending, setSending] = useState(false)
   const [liveState, setLiveState] = useState<"connecting" | "connected" | "offline">("connecting")
 
-  // Offers keyed by request id (so coverage cards update live)
   const [offers, setOffers] = useState<Record<string, CoverageOffer[]>>(() => {
     const map: Record<string, CoverageOffer[]> = {}
     for (const r of coverageRequests) map[r.id] = r.offers ?? []
@@ -61,7 +76,6 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
     ...message,
     employee: message.employee ?? empById(message.employee_id),
   }), [empById])
-  const requestById = useCallback((id?: string) => coverageItems.find(r => r.id === id), [coverageItems])
 
   useEffect(() => { setMessages(orderMessages(initial.map(withEmployee))) }, [initial, withEmployee])
   useEffect(() => { setCoverageItems(coverageRequests) }, [coverageRequests])
@@ -90,197 +104,171 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
     setOffers(nextOffers)
   }, [])
 
-  async function cancelCoverageRequest(requestId: string) {
-    if (!window.confirm("Vertretungsanfrage wirklich stornieren?")) return
-    setManageBusy(requestId)
-    try {
-      const res = await fetch("/api/coverage/manage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel", requestId }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        await refreshCoverage()
-      } else {
-        alert(data.error || "Stornieren fehlgeschlagen.")
-      }
-    } catch {
-      alert("Fehler beim Stornieren der Vertretungsanfrage.")
-    } finally {
-      setManageBusy(null)
-    }
-  }
-
-  async function deleteCoverageRequest(requestId: string, messageId: string) {
-    if (!window.confirm("Vertretungsanfrage und Chat-Karte unwiderruflich löschen?")) return
-    setManageBusy(requestId)
-    try {
-      const res = await fetch("/api/coverage/manage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", requestId }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setMessages(prev => prev.filter(m => m.id !== messageId))
-        await refreshCoverage()
-      } else {
-        alert(data.error || "Löschen fehlgeschlagen.")
-      }
-    } catch {
-      alert("Fehler beim Löschen der Vertretungsanfrage.")
-    } finally {
-      setManageBusy(null)
-    }
-  }
-
-  function startEditCoverageRequest(req: CoverageRequest) {
-    setEditingReqId(req.id)
-    setEditForm({
-      date: req.date || "",
-      startTime: (req.start_time || "").slice(0, 5),
-      endTime: (req.end_time || "").slice(0, 5),
-      position: req.position || "Bar",
-      reason: req.reason || "",
-    })
-  }
-
-  async function saveEditCoverageRequest(requestId: string) {
-    setManageBusy(requestId)
-    try {
-      const res = await fetch("/api/coverage/manage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "edit", requestId, ...editForm }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setEditingReqId(null)
-        await refreshCoverage()
-      } else {
-        alert(data.error || "Bearbeiten fehlgeschlagen.")
-      }
-    } catch {
-      alert("Fehler beim Speichern der Änderungen.")
-    } finally {
-      setManageBusy(null)
-    }
-  }
-
-  // Chat-Realtime bleibt lokal in dieser Komponente. So schreibt/empfängt man ohne
-  // kompletten Server-Refresh, der die Mitarbeiter-App spürbar langsam gemacht hat.
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`team-chat-local-${selfEmployeeId ?? "admin"}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, payload => {
-        setMessages(prev => mergeMessage(prev, withEmployee(payload.new as Message)))
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, payload => {
-        setMessages(prev => mergeMessage(prev, withEmployee(payload.new as Message)))
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, payload => {
-        const id = (payload.old as Pick<Message, "id"> | null)?.id
-        if (id) setMessages(prev => prev.filter(message => message.id !== id))
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "coverage_offers" }, () => {
-        void refreshCoverage()
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "coverage_requests" }, () => {
-        void refreshCoverage()
-      })
-      .subscribe(status => {
-        if (status === "SUBSCRIBED") setLiveState("connected")
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setLiveState("offline")
-        else setLiveState("connecting")
-      })
-
-    return () => {
-      void supabase.removeChannel(channel)
-    }
-  }, [refreshCoverage, selfEmployeeId, withEmployee])
-
   const scrollRef = useRef<HTMLDivElement>(null)
-  const isNearBottomRef = useRef(true)
-  const hasPositionedScrollRef = useRef(false)
-  const previousMessageCountRef = useRef(messages.length)
   const [hasNewMessages, setHasNewMessages] = useState(false)
+  const isNearBottomRef = useRef(true)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const scrollToLatest = useCallback((behavior: ScrollBehavior = "smooth") => {
-    const node = scrollRef.current
-    if (!node) return
-    isNearBottomRef.current = true
-    setHasNewMessages(false)
-    node.scrollTo({ top: node.scrollHeight, behavior })
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior })
+    }
   }, [])
+
   const updateScrollPosition = useCallback(() => {
-    const node = scrollRef.current
-    if (!node) return
-    const nearBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 96
+    const container = scrollRef.current
+    if (!container) return
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    const nearBottom = distanceToBottom <= 120
     isNearBottomRef.current = nearBottom
     if (nearBottom) setHasNewMessages(false)
   }, [])
-  useEffect(() => {
-    const previousCount = previousMessageCountRef.current
-    const receivedNewMessage = messages.length > previousCount
-    previousMessageCountRef.current = messages.length
 
-    if (!hasPositionedScrollRef.current || isNearBottomRef.current) {
-      const behavior: ScrollBehavior = hasPositionedScrollRef.current ? "smooth" : "auto"
-      const frame = window.requestAnimationFrame(() => {
-        scrollToLatest(behavior)
-        hasPositionedScrollRef.current = true
+  useEffect(() => {
+    const timer = setTimeout(() => scrollToLatest("auto"), 50)
+    return () => clearTimeout(timer)
+  }, [scrollToLatest])
+
+  useEffect(() => {
+    const supabase = createClient()
+    setLiveState("connecting")
+
+    const messageChannel = supabase
+      .channel("public:messages:teamchat")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        payload => {
+          const newMsg = payload.new as Message
+          setMessages(prev => {
+            const next = mergeMessage(prev, withEmployee(newMsg))
+            if (isNearBottomRef.current) {
+              setTimeout(() => scrollToLatest("smooth"), 50)
+            } else if (newMsg.employee_id !== selectedEmp) {
+              setHasNewMessages(true)
+            }
+            return next
+          })
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "messages" },
+        payload => {
+          const deletedId = (payload.old as { id: string })?.id
+          if (deletedId) setMessages(prev => prev.filter(m => m.id !== deletedId))
+        }
+      )
+      .subscribe(status => {
+        if (status === "SUBSCRIBED") setLiveState("connected")
+        else if (status === "CLOSED" || status === "CHANNEL_ERROR") setLiveState("offline")
       })
-      return () => window.cancelAnimationFrame(frame)
-    }
 
-    if (receivedNewMessage) setHasNewMessages(true)
-  }, [messages.length, scrollToLatest])
+    return () => { void supabase.removeChannel(messageChannel) }
+  }, [selectedEmp, scrollToLatest, withEmployee])
 
-  // Times are timezone-dependent → render only after mount to avoid hydration mismatch.
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-
-  // Admin: der gewählte Absender bleibt erhalten (auch nach Reload/Refresh), bis er geändert wird.
-  const SENDER_KEY = "browns-chat-sender"
   useEffect(() => {
-    if (selfEmployeeId) return
     try {
       const saved = localStorage.getItem(SENDER_KEY)
       if (saved && employees.some(e => e.id === saved)) setSelectedEmp(saved)
     } catch { /* ignore */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [employees])
+
   function chooseSender(id: string) {
     setSelectedEmp(id)
     try { localStorage.setItem(SENDER_KEY, id) } catch { /* ignore */ }
   }
 
+  // Datei-Upload Handler (PDF / Bilder / Dokumente)
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Datei darf maximal 10 MB groß sein.")
+      return
+    }
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch("/api/chat/upload", { method: "POST", body: formData })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || "Upload fehlgeschlagen")
+
+      setAttachment({
+        url: data.url,
+        name: data.name,
+        type: data.type,
+      })
+    } catch (err: any) {
+      alert("Fehler beim Hochladen: " + (err.message || "Unbekannter Fehler"))
+    } finally {
+      setUploading(false)
+      e.target.value = ""
+    }
+  }
+
   async function sendMessage() {
-    if (!content.trim() || !selectedEmp) return
+    if ((!content.trim() && !attachment) || !selectedEmp) return
     setSending(true)
     const text = content.trim()
+    const currentAttachment = attachment
     try {
       const supabase = createClient()
+      const payload: any = {
+        employee_id: selectedEmp,
+        content: text || (currentAttachment ? `[Datei: ${currentAttachment.name}]` : ""),
+        type: "chat",
+        created_at: new Date().toISOString(),
+      }
+
+      if (recipientId) payload.recipient_id = recipientId
+      if (currentAttachment) {
+        payload.attachment_url = currentAttachment.url
+        payload.attachment_name = currentAttachment.name
+        payload.attachment_type = currentAttachment.type
+      }
+
       const { data, error } = await supabase.from("messages")
-        .insert({ employee_id: selectedEmp, content: text, type: "chat", created_at: new Date().toISOString() })
+        .insert(payload)
         .select("*, employee:employees(id,name,color,position,role)").single()
-      if (error || !data) return
+
+      if (error || !data) {
+        alert("Nachricht konnte nicht gesendet werden.")
+        return
+      }
+
       setMessages(prev => mergeMessage(prev, withEmployee(data as Message)))
       setContent("")
+      setAttachment(null)
       isNearBottomRef.current = true
       setHasNewMessages(false)
-      // Notify everyone except the sender.
-      const others = employees.filter(e => e.id !== selectedEmp).map(e => e.id)
-      if (others.length) {
+
+      // Web-Push-Benachrichtigung verschicken
+      const senderName = empById(selectedEmp)?.name ?? "Team"
+      if (recipientId) {
         notifyPush({
-          employeeIds: others,
-          title: `Team-Chat: ${empById(selectedEmp)?.name ?? "Team"}`,
-          body: text.length > 120 ? text.slice(0, 117) + "..." : text,
+          employeeIds: [recipientId],
+          title: `🔒 Direktnachricht von ${senderName}`,
+          body: text || `[Datei empfangen: ${currentAttachment?.name}]`,
           url: "/portal/chat",
-          tag: "chat",
+          tag: "chat-private",
           chatMessageId: data.id,
         })
+      } else {
+        const others = employees.filter(e => e.id !== selectedEmp).map(e => e.id)
+        if (others.length) {
+          notifyPush({
+            employeeIds: others,
+            title: `Team-Chat: ${senderName}`,
+            body: text || `[Datei gesendet: ${currentAttachment?.name}]`,
+            url: "/portal/chat",
+            tag: "chat",
+            chatMessageId: data.id,
+          })
+        }
       }
     } finally {
       setSending(false)
@@ -293,7 +281,6 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
   }
 
   async function deleteMessage(id: string) {
-    // Optimistisch entfernen; bei Fehler erscheint die Nachricht beim nächsten Refresh wieder.
     setMessages(prev => prev.filter(m => m.id !== id))
     await createClient().from("messages").delete().eq("id", id)
   }
@@ -306,303 +293,137 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
     await createClient().from("messages").delete().in("id", chatIds)
   }
 
-  async function offerToCover(requestId: string) {
-    if (!selectedEmp) return
-    const supabase = createClient()
-    const { data: offer } = await supabase.from("coverage_offers")
-      .insert({ request_id: requestId, employee_id: selectedEmp, created_at: new Date().toISOString() })
-      .select("*, employee:employees(*)").single()
-    if (!offer) return // duplicate or error
-    setOffers(prev => ({ ...prev, [requestId]: [...(prev[requestId] ?? []), offer as CoverageOffer] }))
-    const emp = empById(selectedEmp)
-    const { data: msg } = await supabase.from("messages")
-      .insert({
-        employee_id: selectedEmp,
-        content: `✋ ${emp?.name ?? "Jemand"} kann diese Schicht übernehmen.`,
-        type: "coverage_offer",
-        meta: { request_id: requestId },
-        created_at: new Date().toISOString(),
-      })
-      .select("*, employee:employees(*)").single()
-    if (msg) setMessages(prev => mergeMessage(prev, withEmployee(msg as Message)))
-  }
+  const signedInName = useMemo(() => {
+    const found = employees.find(e => e.id === selectedEmp)
+    return found?.name ?? "Mitarbeiter"
+  }, [employees, selectedEmp])
 
-  function renderCoverageCard(msg: Message) {
-    const req = requestById(msg.meta?.request_id)
-    const reqOffers = req ? offers[req.id] ?? [] : []
-    const alreadyOffered = reqOffers.some(o => o.employee_id === selectedEmp)
-    const suggested = empById(msg.meta?.suggested_id)
-    const filled = req?.status === "filled"
-    const cancelled = req?.status === "cancelled"
-    const filledBy = empById(req?.filled_by)
-    const expired = !filled && !cancelled && req ? req.date < format(new Date(), "yyyy-MM-dd") : false
-    const isEditingThis = req && editingReqId === req.id
+  // Gefilterte Nachrichten:
+  // Öffentlich wenn recipient_id null ist.
+  // 1:1 Direktnachrichten werden nur dem Sender, dem Empfänger und Admins angezeigt.
+  const filteredMessages = useMemo(() => {
+    return messages.filter(msg => {
+      if (msg.type !== "chat") return true
+      if (!recipientId) {
+        // Im öffentlichen Team-Tab: Zeige alle öffentlichen Nachrichten
+        return !msg.recipient_id
+      }
+      // Im 1:1 Direktnachrichten-Tab: Zeige nur Konversation zwischen selectedEmp & recipientId
+      if (!msg.recipient_id) return false
+      const isDirectMatch =
+        (msg.employee_id === selectedEmp && msg.recipient_id === recipientId) ||
+        (msg.employee_id === recipientId && msg.recipient_id === selectedEmp)
+      return isDirectMatch || isAdmin
+    })
+  }, [messages, recipientId, selectedEmp, isAdmin])
 
-    return (
-      <div className="my-3 mx-auto w-full max-w-lg rounded-2xl border border-brand-200/80 bg-white px-4 py-3.5 shadow-card relative group">
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <div className="flex items-center gap-2">
-            <LifeBuoy className="w-4 h-4 text-brand-600 flex-shrink-0" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-brand-700">Ersatz gesucht</span>
-            {cancelled && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-                Storniert durch Leitung
-              </span>
-            )}
-          </div>
-
-          {/* Admin Tools (Bearbeiten, Stornieren, Löschen) */}
-          {isAdmin && (
-            <div className="flex items-center gap-1">
-              {req && !isEditingThis && !cancelled && (
-                <button
-                  type="button"
-                  onClick={() => startEditCoverageRequest(req)}
-                  disabled={manageBusy === req.id}
-                  title="Anfrage bearbeiten"
-                  className="p-1 rounded-lg text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {req && !cancelled && (
-                <button
-                  type="button"
-                  onClick={() => cancelCoverageRequest(req.id)}
-                  disabled={manageBusy === req.id}
-                  title="Anfrage stornieren"
-                  className="p-1 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition"
-                >
-                  <Ban className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => req ? deleteCoverageRequest(req.id, msg.id) : deleteMessage(msg.id)}
-                disabled={manageBusy === (req?.id ?? msg.id)}
-                title="Karte löschen"
-                className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {isEditingThis && req ? (
-          <div className="mt-2 space-y-3 bg-brand-50/50 p-3 rounded-xl border border-brand-200">
-            <p className="text-xs font-bold text-brand-800">Vertretungsanfrage bearbeiten (Admin)</p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <label className="text-[10px] text-gray-500 font-medium block mb-0.5">Datum</label>
-                <input
-                  type="date"
-                  value={editForm.date}
-                  onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
-                  className="w-full px-2 py-1 rounded border border-gray-300 text-xs bg-white"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-gray-500 font-medium block mb-0.5">Position</label>
-                <select
-                  value={editForm.position}
-                  onChange={e => setEditForm(f => ({ ...f, position: e.target.value }))}
-                  className="w-full px-2 py-1 rounded border border-gray-300 text-xs bg-white"
-                >
-                  <option value="Bar">Bar</option>
-                  <option value="Theke">Theke</option>
-                  <option value="Küche">Küche</option>
-                  <option value="Service">Service</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] text-gray-500 font-medium block mb-0.5">Von (HH:MM)</label>
-                <input
-                  type="time"
-                  value={editForm.startTime}
-                  onChange={e => setEditForm(f => ({ ...f, startTime: e.target.value }))}
-                  className="w-full px-2 py-1 rounded border border-gray-300 text-xs bg-white"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-gray-500 font-medium block mb-0.5">Bis (HH:MM)</label>
-                <input
-                  type="time"
-                  value={editForm.endTime}
-                  onChange={e => setEditForm(f => ({ ...f, endTime: e.target.value }))}
-                  className="w-full px-2 py-1 rounded border border-gray-300 text-xs bg-white"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setEditingReqId(null)}
-                className="px-2.5 py-1 rounded text-xs border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-              >
-                Abbrechen
-              </button>
-              <button
-                type="button"
-                onClick={() => saveEditCoverageRequest(req.id)}
-                disabled={manageBusy === req.id}
-                className="px-3 py-1 rounded text-xs bg-brand-600 text-white font-medium hover:bg-brand-700 disabled:opacity-50"
-              >
-                Speichern
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-800 leading-relaxed">{msg.content}</p>
-        )}
-
-        {suggested && !filled && !cancelled && (
-          <p className="text-xs text-gray-500 mt-1.5">
-            💡 Bester Vorschlag: <span className="font-medium text-gray-700">{suggested.name}</span>
-          </p>
-        )}
-
-        {reqOffers.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-3">
-            <span className="text-xs text-gray-500">Zusagen:</span>
-            {reqOffers.map(o => {
-              const e = empById(o.employee_id)
-              return (
-                <span key={o.id} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-white border border-gray-200 text-gray-700">
-                  <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-white text-[8px] font-bold"
-                    style={{ backgroundColor: e?.color ?? "#6366f1" }}>
-                    {e?.name?.split(" ").map(n => n[0]).join("").slice(0,2)}
-                  </span>
-                  {e?.name ?? "—"}
-                </span>
-              )
-            })}
-          </div>
-        )}
-
-        {filled ? (
-          <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-emerald-700">
-            <Check className="w-4 h-4" /> Übernommen von {filledBy?.name ?? "—"}
-          </div>
-        ) : cancelled ? (
-          <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-red-600">
-            <Ban className="w-4 h-4" /> Vertretungsanfrage storniert
-          </div>
-        ) : expired ? (
-          <div className="mt-3 flex items-center gap-1.5 text-sm font-medium text-gray-400">
-            <Clock className="w-4 h-4" /> Zeitraum abgelaufen
-          </div>
-        ) : (
-          <button
-            onClick={() => req && offerToCover(req.id)}
-            disabled={!req || alreadyOffered}
-            className={cn(
-              "mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition",
-              alreadyOffered
-                ? "bg-emerald-100 text-emerald-700 cursor-default"
-                : "bg-brand-600 hover:bg-brand-700 text-white",
-            )}
-          >
-            <Hand className="w-4 h-4" />
-            {alreadyOffered ? "Du hast zugesagt" : "Ich kann übernehmen"}
-          </button>
-        )}
-      </div>
-    )
-  }
-
-  const signedInName = empById(selfEmployeeId ?? selectedEmp)?.name ?? "Team"
+  const targetRecipientName = useMemo(() => {
+    if (!recipientId) return null
+    return empById(recipientId)?.name ?? "Mitarbeiter"
+  }, [recipientId, empById])
 
   return (
-    <section
-      className={cn(
-        "relative mx-auto flex w-full max-w-5xl min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-card-lg",
-        isAdmin
-          ? "h-[calc(100dvh-10rem)] min-h-[30rem] lg:h-[calc(100vh-10rem)]"
-          : "h-[calc(100dvh-14rem)] min-h-[26rem] lg:h-[calc(100vh-10rem)]",
-      )}
-    >
-      <div className="shrink-0 border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-citrus/15 px-4 py-3.5 sm:px-5">
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section aria-label="Team-Chat" className="flex flex-col h-[calc(100vh-5.5rem)] md:h-[720px] bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden relative">
+      {/* Header mit Modus-Auswahl: Öffentlich vs. 1:1 Direktnachricht */}
+      <div className="shrink-0 border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-citrus/15 px-3 py-3 sm:px-5">
+        <div className="flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-500 text-white shadow-card">
               <MessageSquare className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-base font-black text-charcoal">Team-Chat</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="truncate text-base font-black text-charcoal">
+                  {recipientId ? `Direktnachricht mit ${targetRecipientName}` : "Team-Chat"}
+                </h2>
+                {recipientId && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                    <Lock className="h-3 w-3" /> Privat (1:1)
+                  </span>
+                )}
+              </div>
               <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <Users className="h-3.5 w-3.5" />
                   {employees.length} Teammitglieder
                 </span>
                 <span className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold",
                   liveState === "connected" && "bg-emerald-50 text-emerald-700",
                   liveState === "connecting" && "bg-brand-50 text-brand-700",
                   liveState === "offline" && "bg-red-50 text-red-700",
                 )}>
-                  <Wifi className="h-3.5 w-3.5" />
+                  <Wifi className="h-3 w-3" />
                   {liveState === "connected" ? "Live" : liveState === "connecting" ? "Verbinden" : "Offline"}
                 </span>
               </div>
             </div>
           </div>
-          <div className={cn("flex w-full min-w-0 items-center gap-2 sm:w-auto sm:shrink-0", selfEmployeeId && "hidden sm:flex")}>
-          {isAdmin && messages.some(m => m.type === "chat") && (
-            <button onClick={clearChat} title="Alle Chat-Nachrichten löschen"
-              className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600">
-              <Eraser className="w-3.5 h-3.5" /> Chat leeren
-            </button>
-          )}
-          {selfEmployeeId ? (
-            <span className="hidden text-xs font-semibold text-muted-foreground sm:inline">Angemeldet als {signedInName}</span>
-          ) : (
-            <select value={selectedEmp} onChange={e => chooseSender(e.target.value)}
-              aria-label="Absender auswählen"
-              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/30 sm:max-w-[12rem] sm:flex-none">
-              {employees.map(e => <option key={e.id} value={e.id}>Als: {e.name}</option>)}
-            </select>
-          )}
+
+          {/* Modus & Absender Auswählen */}
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+            {/* Empfänger-Auswahl für 1:1 Privatnachricht */}
+            <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2 py-1 text-xs shadow-sm">
+              <select
+                value={recipientId}
+                onChange={e => setRecipientId(e.target.value)}
+                className="bg-transparent font-bold text-gray-700 focus:outline-none cursor-pointer"
+              >
+                <option value="">👥 Team (Öffentlich)</option>
+                <optgroup label="🔒 Direktnachricht an:">
+                  {employees
+                    .filter(e => e.id !== selectedEmp)
+                    .map(e => (
+                      <option key={e.id} value={e.id}>🔒 {e.name} ({e.position})</option>
+                    ))}
+                </optgroup>
+              </select>
+            </div>
+
+            {isAdmin && messages.some(m => m.type === "chat") && (
+              <button onClick={clearChat} title="Alle Chat-Nachrichten löschen"
+                className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600">
+                <Eraser className="w-3.5 h-3.5" /> Leeren
+              </button>
+            )}
+
+            {!selfEmployeeId && (
+              <select value={selectedEmp} onChange={e => chooseSender(e.target.value)}
+                className="rounded-xl border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-600 focus:outline-none">
+                {employees.map(e => <option key={e.id} value={e.id}>Als: {e.name}</option>)}
+              </select>
+            )}
           </div>
         </div>
       </div>
 
+      {/* Nachrichtenverlauf */}
       <div
         ref={scrollRef}
         onScroll={updateScrollPosition}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[linear-gradient(180deg,#fffaf3_0%,#ffffff_46%,#faf8f4_100%)] px-3 py-4 sm:px-5"
       >
-        {messages.length === 0 && (
+        {filteredMessages.length === 0 && (
           <div className="mx-auto mt-8 max-w-sm rounded-2xl border border-dashed border-brand-200 bg-white/80 px-5 py-6 text-center shadow-card">
             <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
-              <MessageSquare className="h-5 w-5" />
+              {recipientId ? <Lock className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
             </div>
-            <p className="text-sm font-bold text-charcoal">Noch keine Team-Nachrichten</p>
-            <p className="mt-1 text-xs text-muted-foreground">Neue Nachrichten erscheinen hier sofort live.</p>
+            <p className="text-sm font-bold text-charcoal">
+              {recipientId ? `Keine privaten Nachrichten mit ${targetRecipientName}` : "Noch keine Team-Nachrichten"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {recipientId ? "Schreibe eine persönliche 1:1 Nachricht. Nur ihr beide könnt sie lesen." : "Neue Nachrichten erscheinen hier sofort live."}
+            </p>
           </div>
         )}
         <div className="space-y-3">
-          {messages.map((msg, i) => {
-            if (msg.type === "coverage_request") return <div key={msg.id}>{renderCoverageCard(msg)}</div>
-            if (msg.type === "coverage_offer" || msg.type === "coverage_filled") {
-              return (
-                <p key={msg.id} className={cn("group text-center text-xs font-medium inline-flex items-center justify-center gap-1.5 w-full",
-                  msg.type === "coverage_filled" ? "text-emerald-600" : "text-gray-400")}>
-                  {msg.content}
-                  {isAdmin && (
-                    <button onClick={() => deleteMessage(msg.id)} title="Löschen"
-                      className="opacity-0 group-hover:opacity-100 transition text-gray-300 hover:text-red-500">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </p>
-              )
-            }
-
+          {filteredMessages.map((msg, i) => {
             const emp = empById(msg.employee_id)
             const isMe = msg.employee_id === selectedEmp
-            const prev = messages[i - 1]
+            const prev = filteredMessages[i - 1]
             const showName = i === 0 || prev?.employee_id !== msg.employee_id || prev?.type !== "chat"
+            const isPrivate = !!msg.recipient_id
+
             return (
               <div key={msg.id} className={cn("group flex gap-2.5", isMe && "flex-row-reverse")}>
                 {showName ? (
@@ -619,13 +440,58 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
                     </div>
                   )
                 ) : <div className="w-8 flex-shrink-0" />}
-                <div className={cn("max-w-[78%] sm:max-w-xs flex flex-col gap-0.5", isMe && "items-end")}>
-                  {showName && <p className="text-xs text-gray-400 font-medium px-1">{emp?.name}</p>}
-                  <div className={cn("flex items-center gap-1.5", isMe && "flex-row-reverse")}>
-                    <div className={cn("whitespace-pre-wrap break-words px-3.5 py-2 rounded-2xl text-sm leading-relaxed shadow-sm",
-                      isMe ? "bg-brand-600 text-white rounded-tr-sm" : "bg-white text-gray-800 rounded-tl-sm border border-gray-100")}>
-                      {msg.content}
+
+                <div className={cn("max-w-[85%] sm:max-w-md flex flex-col gap-0.5", isMe && "items-end")}>
+                  {showName && (
+                    <div className="flex items-center gap-1 px-1">
+                      <p className="text-xs text-gray-500 font-bold">{emp?.name}</p>
+                      {isPrivate && (
+                        <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200">
+                          🔒 Privat
+                        </span>
+                      )}
                     </div>
+                  )}
+
+                  <div className={cn("flex items-center gap-1.5", isMe && "flex-row-reverse")}>
+                    <div className={cn("whitespace-pre-wrap break-words px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm flex flex-col gap-2",
+                      isMe ? "bg-brand-600 text-white rounded-tr-sm" : "bg-white text-gray-800 rounded-tl-sm border border-gray-200")}>
+                      
+                      {/* Textinhalt */}
+                      {msg.content && <div>{msg.content}</div>}
+
+                      {/* Datei-/Bild-Attachment Render */}
+                      {msg.attachment_url && (
+                        <div className="mt-1">
+                          {msg.attachment_type === "image" ? (
+                            <a href={msg.attachment_url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-black/10 hover:opacity-95 transition">
+                              <img src={msg.attachment_url} alt={msg.attachment_name || "Bild"} className="max-h-56 max-w-full object-cover rounded-xl" />
+                            </a>
+                          ) : (
+                            <a
+                              href={msg.attachment_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              download={msg.attachment_name || "download"}
+                              className={cn(
+                                "flex items-center gap-2.5 rounded-xl p-2.5 text-xs font-semibold border transition",
+                                isMe ? "bg-brand-700/60 border-brand-500 text-white hover:bg-brand-700" : "bg-gray-50 border-gray-200 text-gray-800 hover:bg-gray-100"
+                              )}
+                            >
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500 text-white shrink-0">
+                                <FileText className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-bold">{msg.attachment_name || "Datei herunterladen"}</p>
+                                <p className="text-[10px] opacity-75 uppercase">{msg.attachment_type || "Dokument"}</p>
+                              </div>
+                              <Download className="h-4 w-4 shrink-0 opacity-80" />
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {isAdmin && (
                       <button onClick={() => deleteMessage(msg.id)} title="Nachricht löschen"
                         className="opacity-0 group-hover:opacity-100 transition text-gray-300 hover:text-red-500 flex-shrink-0">
@@ -633,7 +499,8 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
                       </button>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 px-1" suppressHydrationWarning>
+
+                  <p className="text-[10px] text-gray-400 px-1" suppressHydrationWarning>
                     {mounted ? format(new Date(msg.created_at), "HH:mm", { locale: de }) : ""}
                   </p>
                 </div>
@@ -653,8 +520,32 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
         </button>
       )}
 
-      <form onSubmit={send} className="shrink-0 border-t border-brand-100 bg-white px-3 py-3 sm:px-4">
+      {/* Eingabebereich — STICKY BOTTOM FÜR STABILE MOBIL-EINGABE */}
+      <form onSubmit={send} className="shrink-0 border-t border-brand-100 bg-white/95 backdrop-blur px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 sticky bottom-0 z-30">
+        
+        {/* Datei-Vorschau Badge vor dem Senden */}
+        {attachment && (
+          <div className="mb-2 flex items-center justify-between rounded-xl border border-brand-200 bg-brand-50/80 px-3 py-1.5 text-xs text-brand-900">
+            <div className="flex items-center gap-2 truncate">
+              {attachment.type === "image" ? <ImageIcon className="h-4 w-4 text-brand-600 shrink-0" /> : <FileText className="h-4 w-4 text-red-600 shrink-0" />}
+              <span className="truncate font-bold">{attachment.name}</span>
+            </div>
+            <button type="button" onClick={() => setAttachment(null)} className="p-1 text-gray-400 hover:text-red-600 transition">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         <div className="flex items-end gap-2">
+          {/* Büroklammer Datei-Upload Button */}
+          <label title="Datei, PDF oder Bild anhängen" className={cn(
+            "flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100 transition",
+            uploading && "animate-pulse opacity-50"
+          )}>
+            <Paperclip className="h-5 w-5" />
+            <input type="file" onChange={handleFileUpload} className="hidden" accept="image/*,application/pdf,.doc,.docx" disabled={uploading} />
+          </label>
+
           <textarea
             value={content}
             onChange={e => setContent(e.target.value)}
@@ -665,10 +556,11 @@ export default function TeamChat({ messages: initial, employees, coverageRequest
               }
             }}
             rows={1}
-            placeholder="Nachricht schreiben..."
+            placeholder={recipientId ? `🔒 Private Nachricht an ${targetRecipientName}...` : "Nachricht an alle schreiben..."}
             className="max-h-28 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-5 placeholder:text-gray-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/30"
           />
-          <button type="submit" disabled={sending || !content.trim()}
+
+          <button type="submit" disabled={sending || uploading || (!content.trim() && !attachment)}
             aria-label="Nachricht senden"
             className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-card transition hover:bg-brand-700 disabled:opacity-40">
             <Send className="w-4 h-4" />

@@ -20,7 +20,7 @@ export default async function AuswertungenPage() {
   const employees = (employeeRows ?? []).map(e => ({ ...e, hourly_wage: wageById.get(e.id) ?? null }))
 
   return (
-    <div className="min-w-0">
+    <div className="p-4 sm:p-6 max-w-5xl">
       <div className="mb-5">
         <h1 className="text-xl font-bold text-gray-900">Auswertungen</h1>
         <p className="text-gray-500 text-sm mt-0.5">Arbeitsstunden &amp; Lohnkosten pro Monat — Grundlage für die Lohnabrechnung</p>

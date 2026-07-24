@@ -771,11 +771,16 @@ export default function ShiftCalendar({ shifts: initialShifts, employees, minSta
                               onClick={() => toggleStatus(shift)}>
                               <p className="font-semibold text-gray-800">{formatTime(shift.start_time)}–{formatTime(shift.end_time)}</p>
                               <p className="text-gray-500">{shift.position}</p>
-                              <span className={cn("text-xs",
-                                shift.status === "confirmed" ? "text-emerald-600" :
-                                shift.status === "absent" ? "text-red-500" : "text-gray-400")}>
-                                {shift.status === "confirmed" ? "✓" : shift.status === "absent" ? "✗" : ""}
-                              </span>
+                              {shift.status === "confirmed" && (
+                                <span className="inline-flex items-center gap-1 rounded bg-emerald-100/80 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 mt-1">
+                                  ✓ Bestätigt
+                                </span>
+                              )}
+                              {shift.status === "absent" && (
+                                <span className="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 mt-1">
+                                  ⚠ Abwesend
+                                </span>
+                              )}
                               <button onClick={e => { e.stopPropagation(); deleteShift(shift.id) }}
                                 className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition">
                                 <X className="w-3 h-3" />
