@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import Link from "next/link"
 import { AlertTriangle } from "lucide-react"
 
 export default function ErrorBoundary({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
@@ -33,9 +34,9 @@ export default function ErrorBoundary({ error, reset }: { error: Error & { diges
           <button onClick={reset} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition">
             Erneut versuchen
           </button>
-          <a href="/" className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-3 px-4 rounded-xl transition text-center">
+          <Link href="/" className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-900 font-bold py-3 px-4 rounded-xl transition text-center inline-block">
             Zur Startseite
-          </a>
+          </Link>
         </div>
       </div>
     </div>

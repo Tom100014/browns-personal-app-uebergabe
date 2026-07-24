@@ -1,4 +1,4 @@
-import { Clock, AlertCircle, TrendingUp } from "lucide-react"
+import { Clock, TrendingUp } from "lucide-react"
 import { formatHours } from "@/lib/hours"
 
 type OvertimeEntry = {
