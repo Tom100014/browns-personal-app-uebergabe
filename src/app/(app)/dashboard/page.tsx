@@ -38,13 +38,14 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const TZ = "Europe/Berlin"
   const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ }) // yyyy-MM-dd (Café-Zeit)
-  const nowHHMM = new Date().toLocaleTimeString("de-DE", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false })
-  
-  // Woche aus der Café-Zeit (Berlin) ableiten
   const todayAnchor = new Date(today + "T12:00:00")
   const weekStart = format(startOfWeek(todayAnchor, { weekStartsOn: 1 }), "yyyy-MM-dd")
   const weekEnd = format(endOfWeek(todayAnchor, { weekStartsOn: 1 }), "yyyy-MM-dd")
-  const hour = Number(nowHHMM.slice(0, 2))
+  
+  // Präzise deutsche Uhrzeit-Berechnung (Berlin Timezone)
+  const nowBerlin = new Date(new Date().toLocaleString("en-US", { timeZone: TZ }))
+  const hour = nowBerlin.getHours()
+  const nowHHMM = format(nowBerlin, "HH:mm")
   const greeting = hour < 11 ? "Guten Morgen" : hour < 17 ? "Guten Tag" : "Guten Abend"
   
   // Choose greeting icon

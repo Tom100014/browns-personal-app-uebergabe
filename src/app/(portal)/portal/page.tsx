@@ -1,19 +1,17 @@
 import Link from "next/link"
-import { Clock, Calendar, LifeBuoy, ArrowRight, CalendarOff, MessageSquare, Grid3X3, ThumbsUp, Euro, Hand, BriefcaseBusiness, UserRoundCheck } from "lucide-react"
+import { Clock, Calendar, LifeBuoy, ArrowRight, CalendarOff, MessageSquare, Grid3X3, ThumbsUp, Euro, Hand, BriefcaseBusiness, UserRoundCheck, Sun, CloudSun, Moon } from "lucide-react"
 import { createClient } from "@/lib/supabase-server"
 import { getCurrentStaff } from "@/lib/staff"
 import { entryHours, shiftHours, formatHours, formatEuro } from "@/lib/hours"
 import { formatDayLabel } from "@/lib/coverage"
 import LiveRefresh from "@/components/realtime/LiveRefresh"
 import RingProgress from "@/components/charts/RingProgress"
-import Logo from "@/components/brand/Logo"
 import { format, startOfWeek, endOfWeek, addDays, startOfMonth, endOfMonth } from "date-fns"
 import { de } from "date-fns/locale"
 import type { Shift } from "@/types"
 
 type ChatMsg = { id: string; content: string; created_at: string; type: string; employee_id: string | null; employee?: { name?: string; color?: string } | null }
 type Abs = { id: string; type: string; start_date: string; status: string }
-type PrivatePay = { hourly_wage?: number | null }
 type DirectoryRow = { id: string; name: string; color?: string | null }
 
 const initials = (name?: string) => (name ?? "?").split(" ").map(n => n[0]).join("").slice(0, 2)
@@ -30,8 +28,12 @@ export default async function PortalHome() {
   const weekEnd = format(endOfWeek(todayAnchor, { weekStartsOn: 1 }), "yyyy-MM-dd")
   const monthStart = format(startOfMonth(todayAnchor), "yyyy-MM-dd")
   const monthEnd = format(endOfMonth(todayAnchor), "yyyy-MM-dd")
-  const hour = Number(new Date().toLocaleTimeString("de-DE", { timeZone: TZ, hour: "2-digit", hour12: false }))
-  const greeting = hour < 11 ? "Guten Morgen" : hour < 17 ? "Hallo" : "Guten Abend"
+  
+  // Präzise deutsche Uhrzeit-Berechnung (Berlin Timezone)
+  const nowBerlin = new Date(new Date().toLocaleString("en-US", { timeZone: TZ }))
+  const hour = nowBerlin.getHours()
+  const greeting = hour < 11 ? "Guten Morgen" : hour < 17 ? "Guten Tag" : "Guten Abend"
+  const GreetingIcon = hour < 11 ? Sun : hour < 17 ? CloudSun : Moon
 
   const [{ data: nextShifts }, { data: weekEntries }, { data: weekShiftsOwn }, { count: openCoverageCount }, { data: chat }, { data: myAbs }, { data: monthEntries }, { data: pay }, { data: directory }] = await Promise.all([
     supabase.from("shifts").select("*").eq("employee_id", me.id).neq("status", "absent").gte("date", today).order("date").order("start_time").limit(3),
@@ -51,58 +53,45 @@ export default async function PortalHome() {
   const directoryById = new Map(((directory ?? []) as DirectoryRow[]).map(employee => [employee.id, employee]))
   const messages = ((chat ?? []) as ChatMsg[])
     .map(message => ({ ...message, employee: message.employee_id ? directoryById.get(message.employee_id) : null }))
-    .reverse() // ältere oben, neueste unten
+    .reverse()
   const absences = (myAbs ?? []) as Abs[]
   const pendingAbs = absences.filter(a => a.status === "pending")
   const todaysShift = shifts.find(s => s.date === today)
   const needsConfirm = shifts.filter(s => s.status === "scheduled").length
 
-  // Wochenbilanz: gearbeitet (Stempeluhr) vs. geplant (Schichten)
-  const worked = (weekEntries ?? []).reduce((s, e) => s + entryHours(e), 0)
-  const weekOwn = (weekShiftsOwn ?? []) as { date: string; start_time: string; end_time: string; position: string }[]
-  const planned = weekOwn.reduce((s, sh) => s + shiftHours(sh), 0)
-  const progress = planned > 0 ? worked / planned : 0
-  const monthWorked = (monthEntries ?? []).reduce((s, e) => s + entryHours(e), 0)
-  const hourlyWage = ((pay ?? {}) as PrivatePay).hourly_wage ?? null
-  const monthPay = hourlyWage ? monthWorked * hourlyWage : null
+  // Wochenbilanz: gearbeitet vs. geplant
+  const workedH = (weekEntries ?? []).reduce((acc, e) => acc + entryHours(e), 0)
+  const plannedH = (weekShiftsOwn ?? []).reduce((acc, s) => acc + shiftHours(s), 0)
 
-  // 7-Tage-Streifen mit eigenen Schichten
-  const strip = Array.from({ length: 7 }, (_, i) => {
-    const d = addDays(weekStartD, i)
-    const ds = format(d, "yyyy-MM-dd")
-    return {
-      ds,
-      label: format(d, "EE", { locale: de }).slice(0, 2),
-      dayNum: format(d, "d"),
-      isToday: ds === today,
-      shifts: weekOwn.filter(s => s.date === ds),
-    }
-  })
+  // Monatslohn (Stunden × Stundenlohn)
+  const monthWorkedH = (monthEntries ?? []).reduce((acc, e) => acc + entryHours(e), 0)
+  const wage = pay?.hourly_wage ?? null
+  const monthPay = wage != null ? monthWorkedH * wage : null
+
   const firstName = me.name.split(" ")[0]
-  const primaryShift = todaysShift ?? next
-  const nextShiftLabel = next ? `${formatDayLabel(next.date)} · ${next.start_time.slice(0, 5)}-${next.end_time.slice(0, 5)}` : "Keine Schicht geplant"
-  const statusLabel = me.employment_type || me.position || "Aktiv"
+  const statusLabel = me.position || me.role || "Mitarbeiter"
+
   const tiles = [
     {
-      href: "/portal/stempeln",
+      href: "/portal/dienstplan",
       icon: BriefcaseBusiness,
       title: "Nächster Einsatz:",
-      value: nextShiftLabel,
-      tone: "bg-[#bd6423] text-white",
+      value: next ? `${formatDayLabel(next.date)} · ${next.start_time.slice(0, 5)} Uhr (${next.position})` : "Keine Schicht",
+      tone: "bg-[#c75d1b] text-white",
     },
     {
       href: "/portal/vertretung",
       icon: Grid3X3,
       title: "Ungelesene Jobangebote:",
       value: `${coverageCount} ${coverageCount === 1 ? "Aktion" : "Aktionen"}`,
-      tone: "bg-[#b85a75] text-white",
+      tone: "bg-[#ad4968] text-white",
       badge: coverageCount,
     },
     {
       href: "/portal/dienstplan",
       icon: ThumbsUp,
       title: "Einsatzplan:",
-      value: `${needsConfirm} ${needsConfirm === 1 ? "KAV offen" : "KAV offen"}`,
+      value: `${needsConfirm} KAV offen`,
       tone: "bg-[#526f9d] text-white",
       badge: needsConfirm,
     },
@@ -130,13 +119,14 @@ export default async function PortalHome() {
   ]
 
   return (
-    <div className="min-h-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+    <div className="min-h-full max-w-7xl mx-auto px-4 py-5 sm:px-6 lg:px-8">
       <LiveRefresh tables={["messages", "shifts", "coverage_requests", "absences", "time_entries"]} />
+      
       <header className="mb-6 flex items-center justify-between gap-4 lg:hidden">
         <Link href="/portal/stempeln" className="text-charcoal-light">
           <Clock className="h-5 w-5" />
         </Link>
-        <p className="text-sm font-extrabold text-charcoal">Start</p>
+        <p className="text-sm font-extrabold text-charcoal">Mitarbeiter Portal</p>
         <Link href="/portal/profil" className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-black text-white shadow-card"
           style={{ backgroundColor: me.color || "#f26a21" }}>
           {initials(me.name)}
@@ -145,25 +135,27 @@ export default async function PortalHome() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="space-y-6">
-          {/* World-Class Hero Greeting Header mit Original Browns Logo */}
-          <div className="glass-card rounded-3xl p-6 sm:p-8 flex items-center justify-between gap-6 relative overflow-hidden">
-            <div className="absolute -right-16 -top-16 w-56 h-56 bg-brand-500/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="flex items-center gap-5 relative z-10 min-w-0">
-              <Logo className="h-20 w-20 sm:h-24 sm:w-24 shadow-2xl ring-4 ring-white" />
+          {/* Aufgeräumter Hero Header ohne doppeltes Logo */}
+          <div className="glass-card rounded-3xl p-6 sm:p-8 flex items-center justify-between gap-6 relative overflow-hidden bg-gradient-to-r from-brand-500/10 via-white to-amber-500/5 border border-brand-200/60 shadow-sm">
+            <div className="flex items-center gap-4 relative z-10 min-w-0">
+              <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-brand-500 text-white shadow-md shrink-0">
+                <GreetingIcon className="h-7 w-7 sm:h-8 sm:w-8" />
+              </div>
               <div className="min-w-0">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-700 text-xs font-bold uppercase tracking-wider mb-1.5">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-700 text-xs font-bold uppercase tracking-wider mb-1">
                   <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
                   {greeting}, {firstName}!
                 </div>
-                <h1 className="truncate text-3xl font-extrabold text-charcoal sm:text-4xl tracking-tight">
-                  Brown&apos;s Personal App
+                <h1 className="truncate text-2xl font-extrabold text-charcoal sm:text-3xl tracking-tight">
+                  Browns Personal Portal
                 </h1>
                 <p className="mt-0.5 text-xs font-medium text-gray-500 capitalize">{format(todayAnchor, "EEEE, dd. MMMM yyyy", { locale: de })}</p>
               </div>
             </div>
-            <div className="hidden sm:flex flex-col items-end gap-2 text-right relative z-10">
-              <Link href="/portal/profil" className="spring-press flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-white/80 border border-gray-200/80 shadow-sm hover:shadow-md">
-                <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold text-white shadow-sm" style={{ backgroundColor: me.color || "#c74806" }}>
+
+            <div className="hidden sm:flex flex-col items-end gap-2 text-right relative z-10 shrink-0">
+              <Link href="/portal/profil" className="spring-press flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-white border border-gray-200/80 shadow-xs hover:shadow-sm">
+                <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold text-white shadow-xs" style={{ backgroundColor: me.color || "#c74806" }}>
                   {initials(me.name)}
                 </span>
                 <span className="text-xs font-bold text-charcoal">{firstName}</span>
@@ -174,13 +166,13 @@ export default async function PortalHome() {
             </div>
           </div>
 
-          {/* Interactive Metric Cards Grid */}
+          {/* Metric Cards Grid */}
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
             {tiles.map(({ href, icon: Icon, title, value, tone, badge }) => (
               <Link key={title} href={href}
-                className={`spring-press group relative min-h-[135px] overflow-hidden rounded-3xl p-5 shadow-sm transition-all hover:shadow-md border border-white/40 ${tone}`}>
+                className={`spring-press group relative min-h-[135px] overflow-hidden rounded-3xl p-5 shadow-xs transition-all hover:shadow-sm border border-white/40 ${tone}`}>
                 <div className="flex items-start justify-between gap-3">
-                  <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-md">
+                  <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-xs">
                     <Icon className="h-6 w-6 text-white" />
                   </div>
                   {typeof badge === "number" && badge > 0 && (
@@ -196,152 +188,134 @@ export default async function PortalHome() {
             ))}
           </div>
 
-          <div className="surface-card p-5">
+          <div className="surface-card p-5 rounded-3xl border border-gray-200 shadow-xs bg-white">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-extrabold uppercase text-charcoal">{format(todayAnchor, "MMMM", { locale: de })}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {next ? `Nächste Schicht ${formatDayLabel(next.date)} um ${next.start_time.slice(0, 5)} Uhr` : "Keine kommende Schicht eingetragen"}
+                <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+                  {format(todayAnchor, "MMMM", { locale: de })}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {todaysShift
+                    ? `Heute Schicht: ${todaysShift.start_time.slice(0, 5)} – ${todaysShift.end_time.slice(0, 5)} Uhr (${todaysShift.position})`
+                    : "Keine kommende Schicht eingetragen"}
                 </p>
               </div>
-              <Link href="/portal/dienstplan" className="text-xs font-semibold text-brand-600 hover:text-brand-700">Plan öffnen</Link>
+              <Link href="/portal/dienstplan" className="inline-flex items-center gap-1 text-xs font-extrabold text-brand-700 hover:text-brand-800">
+                Plan öffnen <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-            <div className="grid grid-cols-7 gap-2">
-              {strip.map(d => (
-                <div key={d.ds}
-                  className={`min-h-[72px] rounded-2xl px-2 py-2 text-center transition ${d.isToday ? "bg-brand-500 text-white shadow-card" : d.shifts.length > 0 ? "bg-brand-100 text-brand-700" : "bg-gray-100 text-muted-foreground"}`}>
-                  <p className="text-sm font-bold leading-none">{d.dayNum}</p>
-                  <p className="mt-1 text-xs font-semibold">{d.label}</p>
-                  <div className="mt-2 flex justify-center gap-1">
-                    {d.shifts.length > 0 ? d.shifts.slice(0, 2).map((_, i) => (
-                      <span key={i} className={`h-1.5 w-1.5 rounded-full ${d.isToday ? "bg-white" : "bg-brand-500"}`} />
-                    )) : <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />}
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+              {[0, 1, 2, 3, 4, 5, 6].map(offset => {
+                const dayDate = addDays(weekStartD, offset)
+                const dateKey = format(dayDate, "yyyy-MM-dd")
+                const isToday = dateKey === today
+                const shiftForDay = (weekShiftsOwn ?? []).find((shift: { date: string }) => shift.date === dateKey)
+                const isAbsent = shiftForDay?.status === "absent"
+
+                return (
+                  <div key={dateKey}
+                    className={`flex flex-col items-center justify-between rounded-2xl p-2 sm:p-3 text-center transition-all border ${
+                      isToday ? "bg-brand-600 text-white font-bold border-brand-600 shadow-sm" : shiftForDay ? "bg-amber-50 text-amber-900 border-amber-200" : "bg-gray-50 text-gray-700 border-gray-100"
+                    }`}>
+                    <span className="text-[11px] font-bold uppercase opacity-80">{format(dayDate, "dd", { locale: de })}</span>
+                    <span className="text-xs font-extrabold">{format(dayDate, "EEEEEE", { locale: de })}</span>
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full" style={{ backgroundColor: isToday ? "#ffffff" : isAbsent ? "#ef4444" : shiftForDay ? "#f59e0b" : "transparent" }} />
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="surface-card p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-extrabold uppercase text-charcoal">Gehalt & Stunden</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Diese Woche</p>
-                </div>
-                <RingProgress progress={progress} className="scale-75">
-                  <p className="stat-number text-lg text-charcoal leading-none">{formatHours(worked)}</p>
-                  <p className="text-[10px] text-muted-foreground">Ist</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="surface-card p-5 rounded-3xl border border-gray-200 shadow-xs bg-white">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Gehalt &amp; Stunden</p>
+              <p className="text-xs text-muted-foreground">Diese Woche</p>
+              <div className="mt-4 flex items-center justify-center">
+                <RingProgress progress={plannedH > 0 ? workedH / plannedH : 0}>
+                  <span className="text-xl font-black text-gray-900">{workedH.toFixed(1)} h</span>
+                  <span className="text-xs text-gray-500 font-semibold">ist</span>
                 </RingProgress>
               </div>
-              <div className="grid grid-cols-8 gap-2">
-                {Array.from({ length: 40 }, (_, i) => (
-                  <span key={i} className={`h-3 w-3 rounded-full ${i < Math.round(Math.min(progress, 1) * 40) ? "bg-brand-500" : "bg-gray-100"}`} />
-                ))}
+              <div className="mt-4 flex items-center justify-between text-xs font-bold text-gray-600 border-t border-gray-100 pt-3">
+                <span>Gearbeitet: {formatHours(workedH)}</span>
+                <span>Geplant: {formatHours(plannedH)}</span>
               </div>
-              <p className="mt-4 text-sm text-muted-foreground">
-                {formatHours(worked)} gearbeitet von {formatHours(planned)} geplant.
-              </p>
             </div>
 
-            <Link href="/portal/vertretung" className="surface-card flex flex-col justify-between overflow-hidden p-5 transition hover:-translate-y-0.5 hover:shadow-card-lg">
+            <div className="surface-card p-5 rounded-3xl border border-gray-200 shadow-xs bg-white">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-extrabold uppercase text-charcoal">Offene Schichten</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Vertretungen im Team</p>
-                </div>
-                <LifeBuoy className="h-5 w-5 text-brand-500" />
+                <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Offene Schichten</p>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                  <LifeBuoy className="h-4 w-4" />
+                </span>
               </div>
-              <div className="mt-7">
-                <p className="stat-number text-5xl text-charcoal">{coverageCount}</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {coverageCount === 1 ? "Eine Schicht sucht Unterstützung." : "Schichten suchen Unterstützung."}
-                </p>
+              <p className="text-xs text-muted-foreground">Vertretungen im Team</p>
+              <div className="mt-4 space-y-2">
+                {coverageCount > 0 ? (
+                  <Link href="/portal/vertretung" className="block rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs font-bold text-amber-900 hover:bg-amber-100 transition">
+                    ⚠️ Es gibt {coverageCount} offene Vertretungsanfragen im Team. Klicke zum Übernehmen.
+                  </Link>
+                ) : (
+                  <p className="text-xs text-gray-400 py-4 text-center">Aktuell keine offenen Vertretungen.</p>
+                )}
               </div>
-            </Link>
+            </div>
           </div>
         </section>
 
-        <aside className="space-y-4">
-          {needsConfirm > 0 && (
-            <Link href="/portal/dienstplan" className="floating-card flex items-center gap-4 p-5 transition hover:-translate-y-0.5">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-[7px] border-brand-500" />
-              <div className="min-w-0 flex-1">
-                <p className="text-lg font-bold leading-tight text-charcoal">Hallo {firstName},</p>
-                <p className="text-sm text-muted-foreground">{needsConfirm} {needsConfirm === 1 ? "Schicht wartet" : "Schichten warten"} auf deine Bestätigung.</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-brand-500" />
-            </Link>
-          )}
-
-          {coverageCount > 0 && (
-            <Link href="/portal/vertretung" className="floating-card block p-5 transition hover:-translate-y-0.5">
-              <div className="mb-5 flex items-start gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-[7px] border-brand-500" />
-                <div>
-                  <p className="text-lg font-bold leading-tight text-charcoal">Hallo Team,</p>
-                  <p className="text-sm text-muted-foreground">Es gibt offene Vertretungen. Bitte prüfe, ob du einspringen kannst.</p>
-                </div>
-              </div>
-              {primaryShift && (
-                <div className="rounded-2xl bg-gray-50 p-4">
-                  <p className="text-xs font-medium text-muted-foreground">Deine Schicht</p>
-                  <p className="mt-2 text-xl font-bold text-charcoal">{primaryShift.position}</p>
-                  <p className="text-sm text-muted-foreground">{formatDayLabel(primaryShift.date)} - {primaryShift.start_time.slice(0, 5)} - {primaryShift.end_time.slice(0, 5)}</p>
-                </div>
-              )}
-            </Link>
-          )}
-
-          {pendingAbs.map(a => (
-            <div key={a.id} className="surface-card flex items-center gap-3 p-4">
-              <CalendarOff className="h-5 w-5 shrink-0 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Dein Antrag ({a.type}, ab {formatDayLabel(a.start_date)}) wird noch geprüft.</p>
+        {/* Rechte Spalte: Schnellzugriff & Team-Chat Preview */}
+        <aside className="space-y-6">
+          <div className="surface-card p-5 rounded-3xl border border-gray-200 shadow-xs bg-white">
+            <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground mb-3">Schnellaktionen</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <Link href="/portal/stempeln" className="flex items-center gap-2.5 rounded-2xl bg-gray-50 border border-gray-200 p-3 text-xs font-bold text-gray-800 hover:bg-brand-50 hover:border-brand-200 transition">
+                <Clock className="h-4 w-4 text-brand-600 shrink-0" />
+                <span>Stempeln</span>
+              </Link>
+              <Link href="/portal/dienstplan" className="flex items-center gap-2.5 rounded-2xl bg-gray-50 border border-gray-200 p-3 text-xs font-bold text-gray-800 hover:bg-brand-50 hover:border-brand-200 transition">
+                <Calendar className="h-4 w-4 text-brand-600 shrink-0" />
+                <span>Plan</span>
+              </Link>
+              <Link href="/portal/abwesenheit" className="flex items-center gap-2.5 rounded-2xl bg-gray-50 border border-gray-200 p-3 text-xs font-bold text-gray-800 hover:bg-brand-50 hover:border-brand-200 transition">
+                <CalendarOff className="h-4 w-4 text-brand-600 shrink-0" />
+                <span>Abwesenheit</span>
+              </Link>
+              <Link href="/portal/vertretung" className="flex items-center gap-2.5 rounded-2xl bg-gray-50 border border-gray-200 p-3 text-xs font-bold text-gray-800 hover:bg-brand-50 hover:border-brand-200 transition">
+                <LifeBuoy className="h-4 w-4 text-brand-600 shrink-0" />
+                <span>Vertretung</span>
+              </Link>
             </div>
-          ))}
-
-          <div className="surface-card p-5">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-brand-600" />
-                <h2 className="text-sm font-bold text-charcoal">Team-Chat</h2>
-              </div>
-              <Link href="/portal/chat" className="text-xs font-semibold text-brand-600 hover:text-brand-700">Alle ansehen</Link>
-            </div>
-            {messages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Noch keine Nachrichten im Team-Chat.</p>
-            ) : (
-              <div className="space-y-3">
-                {messages.map(m => (
-                  <Link key={m.id} href="/portal/chat" className="flex items-start gap-3 rounded-2xl p-2 transition hover:bg-gray-50">
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                      style={{ backgroundColor: m.employee?.color ?? "#4a8df7" }}>
-                      {initials(m.employee?.name)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm leading-snug text-muted-foreground">
-                        <span className="font-semibold text-charcoal">{m.employee?.name?.split(" ")[0] ?? "Team"}:</span> {m.content}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { href: "/portal/stempeln", icon: Clock, label: "Stempeln" },
-              { href: "/portal/dienstplan", icon: Calendar, label: "Plan" },
-              { href: "/portal/abwesenheit", icon: CalendarOff, label: "Abwesenheit" },
-              { href: "/portal/vertretung", icon: LifeBuoy, label: "Vertretung" },
-            ].map(({ href, icon: Icon, label }) => (
-              <Link key={href} href={href}
-                className="group flex min-h-[86px] flex-col justify-between rounded-2xl border border-border bg-white p-4 shadow-card transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card-lg">
-                <Icon className="h-5 w-5 text-muted-foreground transition group-hover:text-brand-600" />
-                <span className="text-sm font-semibold text-charcoal">{label}</span>
+          <div className="surface-card p-5 rounded-3xl border border-gray-200 shadow-xs bg-white">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <MessageSquare className="h-4 w-4 text-brand-600" />
+                Team-Chat
+              </p>
+              <Link href="/portal/chat" className="text-xs font-extrabold text-brand-700 hover:text-brand-800">
+                Alle ansehen
               </Link>
-            ))}
+            </div>
+
+            <div className="space-y-2.5">
+              {messages.length > 0 ? (
+                messages.slice(0, 3).map(msg => (
+                  <div key={msg.id} className="flex items-start gap-2.5 p-2 rounded-xl bg-gray-50 border border-gray-100">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-xs"
+                      style={{ backgroundColor: msg.employee?.color || "#f26a21" }}>
+                      {initials(msg.employee?.name)}
+                    </div>
+                    <div className="min-w-0 flex-1 text-xs">
+                      <p className="font-bold text-gray-900">{msg.employee?.name || "Kollege"}</p>
+                      <p className="text-gray-600 truncate mt-0.5">{msg.content}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-gray-400 text-center py-4">Noch keine Nachrichten.</p>
+              )}
+            </div>
           </div>
         </aside>
       </div>
