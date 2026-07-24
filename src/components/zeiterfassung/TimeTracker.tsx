@@ -113,9 +113,10 @@ export default function TimeTracker({
 
   async function executeClockOut() {
     if (!clockOutTarget) return
-    const revenueVal = parseFloat(shiftRevenueInput.replace(",", "."))
+    const rawInput = shiftRevenueInput.trim()
+    const revenueVal = rawInput === "" ? 0 : parseFloat(rawInput.replace(",", "."))
     if (isNaN(revenueVal) || revenueVal < 0) {
-      setRevenueValidationError("⚠️ Der Schichtumsatz ist eine Pflichtangabe beim Ausstempeln. Bitte gib deinen Betrag in € an.")
+      setRevenueValidationError("⚠️ Bitte gib einen gültigen Betrag in € an (oder lass das Feld leer für 0 €).")
       return
     }
 

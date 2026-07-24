@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Send, Trash2, Eraser, MessageSquare, Users, Wifi, ChevronDown,
   Paperclip, FileText, Image as ImageIcon, X, Lock, Download, CheckCheck,
-  Search, User, Bot, Sparkles, Phone, Video, MoreVertical, Maximize2
+  Search, ArrowLeft, Maximize2
 } from "lucide-react"
 import { createClient } from "@/lib/supabase"
 import type { Employee, Message, CoverageRequest } from "@/types"
@@ -73,6 +73,7 @@ export default function TeamChat({ messages: initial, employees = [], coverageRe
   
   // Active Chat: "" = WhatsApp Team-Chat (Öffentlich), or employee.id = 1:1 WhatsApp Privatchat
   const [recipientId, setRecipientId] = useState<string>("")
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list")
   const [searchQuery, setSearchQuery] = useState("")
   
   // Attachment State & Lightbox Modal
@@ -168,6 +169,11 @@ export default function TeamChat({ messages: initial, employees = [], coverageRe
   function chooseSender(id: string) {
     setSelectedEmp(id)
     try { localStorage.setItem(SENDER_KEY, id) } catch { /* ignore */ }
+  }
+
+  function openChat(id: string) {
+    setRecipientId(id)
+    setMobileView("chat")
   }
 
   // Datei-Upload Handler
@@ -319,7 +325,7 @@ export default function TeamChat({ messages: initial, employees = [], coverageRe
       {/* LEFT SIDEBAR: WHATSAPP CHAT LIST & TEAM DIRECTORY */}
       <div className={cn(
         "w-full md:w-80 lg:w-96 flex flex-col border-r border-gray-200 bg-[#f0f2f5] shrink-0",
-        recipientId !== "" && "hidden md:flex" // Auf Mobile verbergen, wenn Privatchat aktiv ist
+        mobileView === "chat" ? "hidden md:flex" : "flex"
       )}>
         {/* WhatsApp Sidebar Header */}
         <div className="bg-[#075e54] text-white p-3.5 flex items-center justify-between shadow-sm">
@@ -363,7 +369,7 @@ export default function TeamChat({ messages: initial, employees = [], coverageRe
           
           {/* Channel 1: Team-Chat (Öffentlich) */}
           <button
-            onClick={() => setRecipientId("")}
+            onClick={() => openChat("")}
             className={cn(
               "w-full text-left p-3.5 flex items-center gap-3 transition hover:bg-[#f5f6f6]",
               recipientId === "" && "bg-[#e9edef] border-l-4 border-[#00a884]"
@@ -391,7 +397,7 @@ export default function TeamChat({ messages: initial, employees = [], coverageRe
             return (
               <button
                 key={emp.id}
-                onClick={() => setRecipientId(emp.id)}
+                onClick={() => openChat(emp.id)}
                 className={cn(
                   "w-full text-left p-3.5 flex items-center gap-3 transition hover:bg-[#f5f6f6]",
                   isSelected && "bg-[#e9edef] border-l-4 border-[#00a884]"
@@ -421,21 +427,20 @@ export default function TeamChat({ messages: initial, employees = [], coverageRe
       {/* RIGHT MAIN VIEW: WHATSAPP ACTIVE CHAT WINDOW */}
       <div className={cn(
         "flex-1 flex flex-col min-w-0 bg-[#efeae2] relative",
-        recipientId === "" && "flex"
+        mobileView === "list" ? "hidden md:flex" : "flex"
       )}>
         
         {/* WhatsApp Chat Top Header Bar */}
         <div className="bg-[#075e54] text-white px-3 py-2.5 sm:px-4 flex items-center justify-between shadow-md shrink-0 z-20">
           <div className="flex items-center gap-3 min-w-0">
-            {/* Mobile Zurück-Button wenn in 1:1 Chat */}
-            {recipientId !== "" && (
-              <button
-                onClick={() => setRecipientId("")}
-                className="md:hidden flex items-center justify-center p-1.5 text-white/90 hover:text-white rounded-full hover:bg-white/10"
-              >
-                ←
-              </button>
-            )}
+            {/* Mobile Zurück-Button */}
+            <button
+              onClick={() => setMobileView("list")}
+              className="md:hidden flex items-center justify-center p-2 text-white/90 hover:text-white rounded-full hover:bg-white/10"
+              title="Zurück zur Chat-Liste"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
 
             {recipientId ? (
               targetRecipientEmp?.avatar ? (
